@@ -22,6 +22,24 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# Auth schemas
+class UserRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+class UserRegisterResponseUser(BaseModel):
+    id_users: int
+    email: EmailStr
+    name: str
+    created: datetime
+
+    class Config:
+        from_attributes = True
+
+class UserRegisterResponse(BaseModel):
+    message: str
+    user: UserRegisterResponseUser
 # Role schemas
 class RoleBase(BaseModel):
     description: Optional[str] = None

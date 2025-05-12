@@ -13,8 +13,8 @@ class Container(containers.DeclarativeContainer):
     # Database
     database = providers.Singleton(Database, db_url=config.provided.DATABASE_URL)
     
-    # Session
-    session = providers.Singleton(SessionLocal)
+    # Session Factory - provides a new session each time it's called
+    session = providers.Factory(SessionLocal)
     
     # MQTT Client
     mqtt_client = providers.Singleton(

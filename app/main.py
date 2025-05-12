@@ -9,7 +9,8 @@ import logging
 
 from app.core.container import container
 from app.config.settings import settings
-from app.routes import mqtt, database
+from app.routes import mqtt, database, auth
+from app.services.auth import create_default_roles # Import the new function
 
 # Konfigurace logování
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +44,7 @@ def create_application() -> FastAPI:
     # Připojení API routeru
     application.include_router(mqtt.router, prefix=settings.API_V1_STR)
     application.include_router(database.router, prefix=settings.API_V1_STR)
+    application.include_router(auth.router) # No prefix for /api/auth
     
     return application
 
@@ -55,7 +57,16 @@ async def startup_event():
     Inicializuje databázi a MQTT klienta.
     """
     # Inicializace databáze
-    container.database().create_database()
+    container.database().create_database() # This likely creates tables
+
+    # Create default roles after tables are created
+    # We need a database session here.
+    # Get a new session from the factory provided by the container.
+    db = container.session()
+    try:
+        create_default_roles(db)
+    finally:
+        db.close()
     
     # Inicializace MQTT klienta
     mqtt_client = container.mqtt_client()
@@ -99,6 +110,10 @@ def root():
                 "base": f"{settings.API_V1_STR}/database",
                 "status": f"{settings.API_V1_STR}/database/status",
                 "populate": f"{settings.API_V1_STR}/database/populate-all"
+            },
+            "auth": {
+                "base": "/api/auth",
+                "register": "/api/auth/register"
             }
         }
     }

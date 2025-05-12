@@ -18,6 +18,8 @@ class User(Base):
     
     id_users = Column(BigInteger, primary_key=True)  # Primární klíč
     email = Column(String, unique=True, index=True)  # Unikátní email uživatele
+    name = Column(String) # Jméno uživatele
+    password_hash = Column(String) # Hashované heslo uživatele
     created = Column(DateTime, default=datetime.now)  # Datum vytvoření účtu
     active = Column(DateTime)  # Datum poslední aktivity
     
