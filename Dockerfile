@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+WORKDIR /code_root
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Set the Python path and encoding
+ENV PYTHONPATH=/code_root
+ENV PYTHONIOENCODING=utf8
+ENV LANG=C.UTF-8
+
+# Create the app directory and set permissions
+RUN mkdir -p /code_root/app && chmod 755 /code_root/app
+
+# Copy the application code
+COPY . .
+
+EXPOSE 8000
+
+# Run FastAPI with the correct module path
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
