@@ -1,1 +1,5 @@
 /venv
+*.pyc
+*.cpython
+__*.pyo
+__pycache__/
