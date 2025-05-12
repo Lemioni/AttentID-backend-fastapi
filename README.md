@@ -109,6 +109,56 @@ Aplikace podporuje dva formáty dat:
 
 ## 🔄 API Endpointy
 
+### Autentizační Endpointy
+
+- **Registrace uživatele**
+  - `POST /api/auth/register`
+  - Popis: Registruje nového uživatele v systému.
+  - Request Body (JSON):
+    ```json
+    {
+      "email": "uzivatel@example.com",
+      "password": "supertajneheslo",
+      "name": "Jan Novák"
+    }
+    ```
+  - Úspěšná odpověď (201 Created):
+    ```json
+    {
+      "message": "Registrace úspěšná.",
+      "user": {
+        "id_users": 1,
+        "email": "uzivatel@example.com",
+        "name": "Jan Novák",
+        "created": "2023-10-28T10:00:00Z"
+      }
+    }
+    ```
+
+- **Přihlášení uživatele**
+  - `POST /api/auth/login`
+  - Popis: Přihlásí existujícího uživatele a vrátí JWT token.
+  - Request Body (JSON):
+    ```json
+    {
+      "email": "uzivatel@example.com",
+      "password": "supertajneheslo"
+    }
+    ```
+  - Úspěšná odpověď (200 OK):
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "bearer"
+    }
+    ```
+  - Chybná odpověď (401 Unauthorized):
+    ```json
+    {
+      "detail": "Nesprávné přihlašovací údaje."
+    }
+    ```
+
 ### MQTT Endpointy
 
 - `POST /api/v1/mqtt/receive` - Manuální příjem MQTT zpráv

@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:latest
-    container_name: raspberry_pi_postgres
+    container_name: attentid_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - raspberry_pi_network
+      - attentid_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
@@ -24,7 +24,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: raspberry_pi_pgadmin
+    container_name: attentid_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
@@ -34,7 +34,7 @@ services:
     ports:
       - "5050:80"
     networks:
-      - raspberry_pi_network
+      - attentid_network
     restart: unless-stopped
     depends_on:
       - postgres
@@ -43,12 +43,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mqtt
-    container_name: raspberry_pi_mqtt
+    container_name: attentid_mqtt
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-raspberry_pi_data}
       - MQTT_BROKER_HOST=${MQTT_BROKER_HOST:-localhost}
       - MQTT_BROKER_PORT=${MQTT_BROKER_PORT:-1883}
-      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-raspberry_pi_mqtt}
+      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-attentid_mqtt}
       - MQTT_TOPIC=${MQTT_TOPIC:-raspberry/+/data}
       - MQTT_USERNAME=${MQTT_USERNAME:-rv-catcher}
       - MQTT_PASSWORD=${MQTT_PASSWORD:-D6U5ERM7VAIdh7vaCa4fg6Leh}
@@ -58,7 +58,7 @@ services:
         source: ./app
         target: /code_root/app
     networks:
-      - raspberry_pi_network
+      - attentid_network
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,12 +68,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: raspberry_pi_api
+    container_name: attentid_api
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-raspberry_pi_data}
       - MQTT_BROKER_HOST=${MQTT_BROKER_HOST:-localhost}
       - MQTT_BROKER_PORT=${MQTT_BROKER_PORT:-1883}
-      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-raspberry_pi_mqtt}
+      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-attentid_mqtt}
       - MQTT_TOPIC=${MQTT_TOPIC:-raspberry/+/data}
       - MQTT_USERNAME=${MQTT_USERNAME:-rv-catcher}
       - MQTT_PASSWORD=${MQTT_PASSWORD:-D6U5ERM7VAIdh7vaCa4fg6Leh}
@@ -85,7 +85,7 @@ services:
     ports:
       - "8000:8000"
     networks:
-      - raspberry_pi_network
+      - attentid_network
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,7 +94,7 @@ services:
     restart: unless-stopped
 
 networks:
-  raspberry_pi_network:
+  attentid_network:
     driver: bridge
 
 volumes:
