@@ -1,1 +1,0 @@
-from app.api.location.router import router

@@ -6,7 +6,6 @@ pydantic-settings==2.0.3
 alembic==1.12.1
 psycopg2-binary==2.9.9
 paho-mqtt==2.1.0
-python-dotenv==1.0.0
 asyncpg==0.28.0
 pytest==7.4.3
 httpx==0.25.0
@@ -38,7 +37,7 @@ multidict==6.4.3
 parsimonious==0.10.0
 propcache==0.3.1
 pycryptodome==3.22.0
-pydantic_core==2.33.2
+pydantic_core==2.10.1
 python-dotenv==1.1.0
 pyunormalize==16.0.0
 regex==2024.11.6
@@ -52,3 +51,4 @@ urllib3==2.4.0
 web3==7.11.0
 websockets==15.0.1
 yarl==1.20.0
+dependency_injector==4.41.0

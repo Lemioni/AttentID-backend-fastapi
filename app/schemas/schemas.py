@@ -1,5 +1,10 @@
+"""
+Modul definující Pydantic schémata pro validaci dat.
+Obsahuje modely pro validaci vstupních a výstupních dat API.
+"""
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 # User schemas
@@ -115,25 +120,38 @@ class Location(LocationBase):
     class Config:
         from_attributes = True
 
-# MQTT Entry schemas
+# Základní schémata pro MQTT záznamy
 class MQTTEntryBase(BaseModel):
-    topic: str
-    payload: str
-    id_topics: int
+    """
+    Základní schéma pro MQTT záznam.
+    Definuje povinné atributy pro každý MQTT záznam.
+    """
+    topic: str  # Téma zprávy
+    payload: str  # Obsah zprávy
+    id_topics: int  # ID tématu v databázi
 
 class MQTTEntryCreate(MQTTEntryBase):
     pass
 
 class MQTTEntry(MQTTEntryBase):
-    id_mqttenteries: int
-    time: Optional[datetime] = None
+    """
+    Rozšířené schéma pro MQTT záznam.
+    Přidává systémem generované atributy.
+    """
+    id_mqttenteries: int  # Unikátní ID záznamu
+    time: Optional[datetime] = None  # Čas přijetí zprávy
     
     class Config:
+        """Konfigurace pro Pydantic model."""
         from_attributes = True
 
-# MQTT Message schema for incoming messages
+# Schéma pro příchozí MQTT zprávy
 class MQTTMessage(BaseModel):
-    topic: str
-    payload: str
-    qos: int = 0
-    device_id: Optional[str] = None
+    """
+    Schéma pro příchozí MQTT zprávy.
+    Používá se pro validaci zpráv přijatých přes MQTT.
+    """
+    topic: str  # Téma zprávy
+    payload: str  # Obsah zprávy
+    qos: int = 0  # Quality of Service úroveň
+    device_id: Optional[str] = None  # Volitelný identifikátor zařízení

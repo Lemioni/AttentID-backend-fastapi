@@ -1,19 +1,30 @@
+"""
+Modul definující databázové modely aplikace.
+Obsahuje SQLAlchemy modely pro všechny entity v systému.
+"""
+
 from sqlalchemy import Column, BigInteger, String, ForeignKey, DateTime, Text, Boolean, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
+from datetime import datetime
 
 class User(Base):
+    """
+    Model reprezentující uživatele v systému.
+    Uchovává základní informace o uživatelích a jejich stavu.
+    """
     __tablename__ = "users"
     
-    id_users = Column(BigInteger, primary_key=True)
-    email = Column(Text)
-    created = Column(DateTime)
-    active = Column(DateTime)
+    id_users = Column(BigInteger, primary_key=True)  # Primární klíč
+    email = Column(String, unique=True, index=True)  # Unikátní email uživatele
+    created = Column(DateTime, default=datetime.now)  # Datum vytvoření účtu
+    active = Column(DateTime)  # Datum poslední aktivity
     
-    # Relationships
-    devices = relationship("Device", back_populates="user")
-    created_topics = relationship("Topic", back_populates="created_by")
+    # Relace
+    topics = relationship("Topic", back_populates="user")  # Témata vytvořená uživatelem
+    devices = relationship("Device", back_populates="user")  # Zařízení přiřazená uživateli
+    #created_topics = relationship("Topic", back_populates="created_by")
     placed_locations = relationship("Location", back_populates="placed_by")
     user_roles = relationship("UserRole", foreign_keys="UserRole.id_users", back_populates="user")
     created_roles = relationship("UserRole", foreign_keys="UserRole.id_users_created", back_populates="created_by")
@@ -46,16 +57,20 @@ class UserRole(Base):
     deactivated_by = relationship("User", foreign_keys=[id_users_deactivated], back_populates="deactivated_roles")
 
 class Topic(Base):
+    """
+    Model reprezentující MQTT téma.
+    Sleduje témata a jejich metadata.
+    """
     __tablename__ = "topics"
     
-    id_topics = Column(BigInteger, primary_key=True)
-    topic = Column(Text)
-    id_users_created = Column(BigInteger, ForeignKey("users.id_users"))
-    when_created = Column(DateTime)
+    id_topics = Column(BigInteger, primary_key=True)  # Primární klíč
+    topic = Column(Text)  # Název tématu
+    id_users_created = Column(BigInteger, ForeignKey("users.id_users"))  # Tvůrce tématu
+    when_created = Column(DateTime, default=datetime.now)  # Datum vytvoření
     
-    # Relationships
-    created_by = relationship("User", back_populates="created_topics")
-    mqtt_entries = relationship("MQTTEntry", back_populates="topic_rel")
+    # Relace
+    user = relationship("User", back_populates="topics")  # Uživatel, který téma vytvořil
+    mqtt_entries = relationship("MQTTEntry", back_populates="topic_rel")  # MQTT zprávy v tématu
     location_types = relationship("LocationType", back_populates="topic_rel")
 
 class LocationType(Base):
@@ -71,6 +86,10 @@ class LocationType(Base):
     locations = relationship("Location", back_populates="location_type")
 
 class Device(Base):
+    """
+    Model reprezentující BLE zařízení.
+    Uchovává informace o zařízeních detekovaných v systému.
+    """
     __tablename__ = "device"
     
     id_device = Column(BigInteger, primary_key=True)
@@ -99,13 +118,17 @@ class Location(Base):
     placed_by = relationship("User", back_populates="placed_locations")
 
 class MQTTEntry(Base):
+    """
+    Model reprezentující MQTT zprávu.
+    Ukládá všechny přijaté MQTT zprávy a jejich metadata.
+    """
     __tablename__ = "mqttenteries"
     
-    id_mqttenteries = Column(BigInteger, primary_key=True)
-    time = Column(DateTime)
-    topic = Column(Text)
-    payload = Column(Text)
-    id_topics = Column(BigInteger, ForeignKey("topics.id_topics"))
+    id_mqttenteries = Column(BigInteger, primary_key=True)  # Primární klíč
+    time = Column(DateTime, default=datetime.now)  # Čas přijetí zprávy
+    topic = Column(Text)  # Téma zprávy
+    payload = Column(Text)  # Obsah zprávy
+    id_topics = Column(BigInteger, ForeignKey("topics.id_topics"))  # Reference na téma
     
-    # Relationships
-    topic_rel = relationship("Topic", back_populates="mqtt_entries")
+    # Relace
+    topic_rel = relationship("Topic", back_populates="mqtt_entries")  # Téma zprávy

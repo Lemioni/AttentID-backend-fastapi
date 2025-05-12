@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 class MQTTClient:
     def __init__(self):
-        self.client_id = f"{settings.mqtt_client_id}_{random.randint(0, 1000)}"
-        self.broker = settings.mqtt_broker_host
-        self.port = settings.mqtt_broker_port
-        self.topic = settings.mqtt_topic
-        self.username = settings.mqtt_username
-        self.password = settings.mqtt_password
-        self.use_tls = settings.mqtt_use_tls
+        self.client_id = f"{settings.MQTT_CLIENT_ID}_{random.randint(0, 1000)}"
+        self.broker = settings.MQTT_BROKER_HOST
+        self.port = settings.MQTT_BROKER_PORT
+        self.topic = settings.MQTT_TOPIC
+        self.username = settings.MQTT_USERNAME
+        self.password = settings.MQTT_PASSWORD
+        self.use_tls = settings.MQTT_USE_TLS
         
         # Update client initialization with callback_api_version
         self.client = mqtt_client.Client(client_id=self.client_id, callback_api_version=mqtt_client.CallbackAPIVersion.VERSION1)
