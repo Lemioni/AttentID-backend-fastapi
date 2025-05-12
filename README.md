@@ -158,6 +158,24 @@ Aplikace podporuje dva formáty dat:
       "detail": "Nesprávné přihlašovací údaje."
     }
     ```
+- **Získání informací o přihlášeném uživateli**
+  - `GET /api/users/me`
+  - Popis: Získání informací o přihlášeném uživateli (Gets information about the logged-in user).
+  - Autentizace: Vyžadována.
+  - Databázové akce: Načte data z `users` a připojených `user_role` &amp; `roles` pro autentizovaného uživatele (Loads data from `users` and joined `user_role` &amp; `roles` for the authenticated user).
+  - Ideální JSON odpověď (200 OK):
+    ```json
+    {
+      "id_users": 1,
+      "name": "Jan Novák",
+      "email": "uzivatel@example.com",
+      "created": "2023-10-26T10:00:00Z",
+      "last_active": "2023-10-28T09:15:00Z",
+      "roles": [
+        {"id_roles": 1, "description": "uzivatel"}
+      ]
+    }
+    ```
 
 ### MQTT Endpointy
 

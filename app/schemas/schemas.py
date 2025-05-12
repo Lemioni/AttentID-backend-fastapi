@@ -40,6 +40,34 @@ class UserRegisterResponseUser(BaseModel):
 class UserRegisterResponse(BaseModel):
     message: str
     user: UserRegisterResponseUser
+# Schéma pro detail role v odpovědi /me
+class UserRoleDetail(BaseModel):
+    """
+    Detail role uživatele pro UserMeResponse.
+    Specifikuje id_roles a popis role.
+    """
+    id_roles: int
+    description: str  # Popis role, např. "administrátor", "uživatel"
+
+    class Config:
+        from_attributes = True
+
+
+# Schéma pro odpověď endpointu /api/users/me
+class UserMeResponse(BaseModel):
+    """
+    Schéma pro odpověď endpointu /api/users/me.
+    Obsahuje detailní informace o přihlášeném uživateli včetně jeho rolí.
+    """
+    id_users: int  # ID uživatele
+    name: str  # Jméno uživatele
+    email: EmailStr  # Emailová adresa uživatele
+    created: datetime  # Datum a čas vytvoření účtu uživatele
+    last_active: datetime  # Datum a čas poslední aktivity uživatele (z pole users.active)
+    roles: List[UserRoleDetail]  # Seznam rolí přiřazených uživateli
+
+    class Config:
+        from_attributes = True # Umožňuje mapování z ORM modelu atributů na pole schématu
 class UserLoginRequest(BaseModel):
     email: EmailStr
     password: str

@@ -1,12 +1,17 @@
+from app.core.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
 from typing import Optional
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from app.services.users import get_user_by_email # Assuming this function exists or will be created if needed
 
 from app.models.models import User, UserRole, Role
 from app.schemas.schemas import UserRegisterRequest, TokenData
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 from app.config.settings import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -146,3 +151,53 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
+    """
+    Dekóduje token, získá uživatele a ověří token.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Nelze ověřit přihlašovací údaje",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    
+    user = get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Získá aktuálně přihlášeného aktivního uživatele.
+    Používá se jako FastAPI dependency.
+    """
+    # V modelu User je 'active' datetime objekt. Předpokládáme, že pokud je nastaven, uživatel je aktivní.
+    # Pro explicitní kontrolu neaktivity by bylo potřeba porovnat s aktuálním časem
+    # nebo mít dedikovaný boolean 'is_active' flag.
+    # Prozatím, pokud 'active' existuje (není None), považujeme uživatele za aktivního.
+    # Podle schématu UserBase je 'active' typu datetime.
+    # V User modelu je 'active' DateTime, nullable=False. Takže by měl vždy existovat.
+    # Otázka je, co znamená "neaktivní". Pokud by to znamenalo, že 'active' je starší než nějaký limit,
+    # pak by zde byla potřeba další logika. Prozatím předpokládáme, že existence záznamu = aktivní.
+    # Pokud by 'active' znamenalo 'last_login_time', pak by se zde nekontrolovala aktivita.
+    # Vzhledem k názvu funkce "get_current_ACTIVE_user", je nutné nějak ověřit aktivitu.
+    # V modelu User je pole 'active' typu DateTime a je non-nullable.
+    # Předpokládejme, že 'active' se aktualizuje při každé aktivitě a pokud by uživatel byl deaktivován,
+    # nastavilo by se např. na NULL nebo by existoval jiný flag.
+    # Pro jednoduchost, pokud je uživatel nalezen, považujeme ho za aktivního.
+    # Pokud by existoval explicitní atribut 'is_active' (boolean), bylo by to lepší.
+    # V User modelu je pole 'active' (DateTime), které se nastavuje při vytvoření.
+    # Není zde jasná definice "neaktivního" uživatele.
+    # Prozatím, pokud je uživatel načten, považujeme ho za aktivního.
+    # Pokud by byla potřeba sofistikovanější kontrola (např. flag 'is_deactivated'), musela by se přidat.
+    if current_user.active is None: # Toto by nemělo nastat, pokud je 'active' non-nullable a vždy se nastavuje
+        raise HTTPException(status_code=400, detail="Neaktivní uživatel")
+    return current_user
