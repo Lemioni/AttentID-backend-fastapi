@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     
     # Logging settings
     LOG_LEVEL: str = "INFO"
+
+    # JWT settings
+    SECRET_KEY: str = "your_secret_key"  # Load from .env in production
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     model_config = {
         "case_sensitive": True,

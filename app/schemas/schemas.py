@@ -40,6 +40,16 @@ class UserRegisterResponseUser(BaseModel):
 class UserRegisterResponse(BaseModel):
     message: str
     user: UserRegisterResponseUser
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
 # Role schemas
 class RoleBase(BaseModel):
     description: Optional[str] = None
