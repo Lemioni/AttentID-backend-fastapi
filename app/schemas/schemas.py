@@ -1,5 +1,10 @@
+"""
+Modul definující Pydantic schémata pro validaci dat.
+Obsahuje modely pro validaci vstupních a výstupních dat API.
+"""
+
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 # User schemas
@@ -17,6 +22,62 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# Auth schemas
+class UserRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+class UserRegisterResponseUser(BaseModel):
+    id_users: int
+    email: EmailStr
+    name: str
+    created: datetime
+
+    class Config:
+        from_attributes = True
+
+class UserRegisterResponse(BaseModel):
+    message: str
+    user: UserRegisterResponseUser
+# Schéma pro detail role v odpovědi /me
+class UserRoleDetail(BaseModel):
+    """
+    Detail role uživatele pro UserMeResponse.
+    Specifikuje id_roles a popis role.
+    """
+    id_roles: int
+    description: str  # Popis role, např. "administrátor", "uživatel"
+
+    class Config:
+        from_attributes = True
+
+
+# Schéma pro odpověď endpointu /api/users/me
+class UserMeResponse(BaseModel):
+    """
+    Schéma pro odpověď endpointu /api/users/me.
+    Obsahuje detailní informace o přihlášeném uživateli včetně jeho rolí.
+    """
+    id_users: int  # ID uživatele
+    name: str  # Jméno uživatele
+    email: EmailStr  # Emailová adresa uživatele
+    created: datetime  # Datum a čas vytvoření účtu uživatele
+    last_active: datetime  # Datum a čas poslední aktivity uživatele (z pole users.active)
+    roles: List[UserRoleDetail]  # Seznam rolí přiřazených uživateli
+
+    class Config:
+        from_attributes = True # Umožňuje mapování z ORM modelu atributů na pole schématu
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
 # Role schemas
 class RoleBase(BaseModel):
     description: Optional[str] = None
@@ -115,25 +176,38 @@ class Location(LocationBase):
     class Config:
         from_attributes = True
 
-# MQTT Entry schemas
+# Základní schémata pro MQTT záznamy
 class MQTTEntryBase(BaseModel):
-    topic: str
-    payload: str
-    id_topics: int
+    """
+    Základní schéma pro MQTT záznam.
+    Definuje povinné atributy pro každý MQTT záznam.
+    """
+    topic: str  # Téma zprávy
+    payload: str  # Obsah zprávy
+    id_topics: int  # ID tématu v databázi
 
 class MQTTEntryCreate(MQTTEntryBase):
     pass
 
 class MQTTEntry(MQTTEntryBase):
-    id_mqttenteries: int
-    time: Optional[datetime] = None
+    """
+    Rozšířené schéma pro MQTT záznam.
+    Přidává systémem generované atributy.
+    """
+    id_mqttenteries: int  # Unikátní ID záznamu
+    time: Optional[datetime] = None  # Čas přijetí zprávy
     
     class Config:
+        """Konfigurace pro Pydantic model."""
         from_attributes = True
 
-# MQTT Message schema for incoming messages
+# Schéma pro příchozí MQTT zprávy
 class MQTTMessage(BaseModel):
-    topic: str
-    payload: str
-    qos: int = 0
-    device_id: Optional[str] = None
+    """
+    Schéma pro příchozí MQTT zprávy.
+    Používá se pro validaci zpráv přijatých přes MQTT.
+    """
+    topic: str  # Téma zprávy
+    payload: str  # Obsah zprávy
+    qos: int = 0  # Quality of Service úroveň
+    device_id: Optional[str] = None  # Volitelný identifikátor zařízení

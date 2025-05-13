@@ -1,92 +1,212 @@
-# Raspberry Pi MQTT Data Collection System
+# AttentID Backend FastAPI
 
-A FastAPI application that collects and processes data from Raspberry Pi devices via MQTT and stores it in a PostgreSQL database.
+Backendová aplikace pro zpracování a ukládání dat z BLE skenerů AttentID. Aplikace přijímá data přes MQTT protokol, zpracovává je a ukládá do PostgreSQL databáze.
 
-## Architecture
+## 🚀 Funkce
 
-This system consists of:
+- Příjem BLE dat přes MQTT protokol
+- Automatická detekce a registrace nových zařízení
+- REST API pro přístup k datům
+- Zabezpečené MQTT spojení přes TLS
+- Automatické zpracování různých formátů dat
+- Perzistentní ukládání do PostgreSQL
 
-1. **PostgreSQL Database** - For storing device information, location data, and MQTT messages
-2. **pgAdmin** - For easy database inspection and management
-3. **FastAPI Application** - RESTful API with endpoints to manage devices, locations, and MQTT data
-4. **MQTT Client** - For subscribing to topics and receiving messages from Raspberry Pi devices
+## 📁 Struktura projektu
 
-## Features
-
-- Docker Compose setup for easy deployment
-- PostgreSQL database with comprehensive data model
-- MQTT message processing and storage
-- REST API for data access and management
-- Environment-based configuration
-
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Git
-
-### Setup
-
-1. Clone the repository:
-
-```bash
-git clone <your-repository-url>
-cd <repository-name>
+```
+app/
+├── core/           # Jádro aplikace (databáze, DI container)
+├── config/         # Konfigurační soubory
+├── models/         # SQLAlchemy modely
+├── mqtt/           # MQTT klient a zpracování zpráv
+├── routes/         # API endpointy
+├── schemas/        # Pydantic schémata
+└── services/       # Byznys logika
 ```
 
-2. Create a `.env` file with your configuration (see `.env.example` for reference)
+### Klíčové komponenty
 
-3. Start the Docker containers:
+- `mqtt/client.py` - MQTT klient pro komunikaci s brokerem
+- `mqtt/handler.py` - Zpracování MQTT zpráv a ukládání do DB
+- `models/models.py` - Databázové modely (User, Device, Topic, atd.)
+- `config/settings.py` - Konfigurační proměnné aplikace
 
+## 🛠 Technologie
+
+- FastAPI - Moderní, rychlý webový framework
+- SQLAlchemy - ORM pro práci s databází
+- Paho MQTT - Knihovna pro MQTT komunikaci
+- PostgreSQL - Databázový systém
+- Pydantic - Validace dat a nastavení
+
+## 📦 Instalace
+
+1. Klonování repozitáře:
 ```bash
-docker-compose up -d
+git clone <repository-url>
+cd AttentID-backend-fastapi
 ```
 
-4. The API will be available at: http://localhost:8000
-5. API documentation is available at: http://localhost:8000/docs
-6. pgAdmin will be available at: http://localhost:5050 (login with the credentials set in your `.env` file)
+2. Instalace závislostí:
+```bash
+pip install -r requirements.txt
+```
 
-## API Endpoints
+3. Nastavení prostředí:
+   - Vytvořte soubor `.env` podle vzoru `.env.example`
+   - Nastavte připojení k databázi a MQTT brokeru
 
-### Device Management
+4. Spuštění aplikace:
+```bash
+uvicorn app.main:app --reload
+```
 
-- `POST /device/register` - Register a new Raspberry Pi device
-- `GET /device/{device_id}` - Get device details
-- `GET /device/` - List all devices with optional filters
-- `PUT /device/{device_id}` - Update device information
-- `DELETE /device/{device_id}` - Delete a device
+## ⚙️ Konfigurace
 
-### MQTT Messages
+Hlavní konfigurační proměnné v `config/settings.py`:
 
-- `POST /mqtt/receive` - Manually receive an MQTT message (for testing)
-- `GET /mqtt/messages` - Get MQTT messages with optional filters
-- `GET /mqtt/topics` - List all topics
-- `POST /mqtt/publish` - Publish an MQTT message (for testing)
+- `DATABASE_URL` - URL pro připojení k PostgreSQL
+- `MQTT_BROKER_HOST` - Adresa MQTT brokeru
+- `MQTT_BROKER_PORT` - Port MQTT brokeru (8883 pro TLS)
+- `MQTT_USERNAME` - Přihlašovací jméno pro MQTT
+- `MQTT_PASSWORD` - Heslo pro MQTT
+- `MQTT_TOPIC` - Téma pro odběr zpráv
 
-### Location Management
+## 📡 MQTT komunikace
 
-- `POST /location/type` - Create a new location type
-- `GET /location/types` - List all location types
-- `POST /location/` - Create a new location
-- `GET /location/` - List all locations with optional filters
-- `GET /location/{location_id}` - Get location details
-- `DELETE /location/{location_id}` - Delete a location
+### Formát zpráv
 
-## Environment Variables
+Aplikace podporuje dva formáty dat:
 
-Configuration is done through environment variables:
+1. JSON formát:
+```json
+{
+    "device_id": "AA:BB:CC:DD:EE:FF",
+    "data": {
+        "rssi": -75,
+        "timestamp": "2024-03-14T12:00:00Z"
+    }
+}
+```
 
-- `DATABASE_URL` - PostgreSQL connection string
-- `MQTT_BROKER_HOST` - MQTT broker hostname/IP
-- `MQTT_BROKER_PORT` - MQTT broker port
-- `MQTT_CLIENT_ID` - MQTT client ID
-- `MQTT_TOPIC` - MQTT topic pattern to subscribe to
+2. Python dictionary formát (z BLE skenerů):
+```python
+{
+    'mac': 'AA:BB:CC:DD:EE:FF',
+    'data': {
+        'rssi': -75,
+        'timestamp': '2024-03-14T12:00:00Z'
+    }
+}
+```
 
-## Contributing
+### Zpracování zpráv
 
-Feel free to submit issues or pull requests for enhancements or fixes.
+1. Příjem zprávy přes MQTT
+2. Parsování a extrakce device_id
+3. Vytvoření nebo aktualizace záznamu zařízení
+4. Uložení zprávy do databáze
 
-## License
+## 🔄 API Endpointy
 
-[Your License Here]
+### Autentizační Endpointy
+
+- **Registrace uživatele**
+  - `POST /api/auth/register`
+  - Popis: Registruje nového uživatele v systému.
+  - Request Body (JSON):
+    ```json
+    {
+      "email": "uzivatel@example.com",
+      "password": "supertajneheslo",
+      "name": "Jan Novák"
+    }
+    ```
+  - Úspěšná odpověď (201 Created):
+    ```json
+    {
+      "message": "Registrace úspěšná.",
+      "user": {
+        "id_users": 1,
+        "email": "uzivatel@example.com",
+        "name": "Jan Novák",
+        "created": "2023-10-28T10:00:00Z"
+      }
+    }
+    ```
+
+- **Přihlášení uživatele**
+  - `POST /api/auth/login`
+  - Popis: Přihlásí existujícího uživatele a vrátí JWT token.
+  - Request Body (JSON):
+    ```json
+    {
+      "email": "uzivatel@example.com",
+      "password": "supertajneheslo"
+    }
+    ```
+  - Úspěšná odpověď (200 OK):
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "bearer"
+    }
+    ```
+  - Chybná odpověď (401 Unauthorized):
+    ```json
+    {
+      "detail": "Nesprávné přihlašovací údaje."
+    }
+    ```
+- **Získání informací o přihlášeném uživateli**
+  - `GET /api/users/me`
+  - Popis: Získání informací o přihlášeném uživateli (Gets information about the logged-in user).
+  - Autentizace: Vyžadována.
+  - Databázové akce: Načte data z `users` a připojených `user_role` &amp; `roles` pro autentizovaného uživatele (Loads data from `users` and joined `user_role` &amp; `roles` for the authenticated user).
+  - Ideální JSON odpověď (200 OK):
+    ```json
+    {
+      "id_users": 1,
+      "name": "Jan Novák",
+      "email": "uzivatel@example.com",
+      "created": "2023-10-26T10:00:00Z",
+      "last_active": "2023-10-28T09:15:00Z",
+      "roles": [
+        {"id_roles": 1, "description": "uzivatel"}
+      ]
+    }
+    ```
+
+### MQTT Endpointy
+
+- `POST /api/v1/mqtt/receive` - Manuální příjem MQTT zpráv
+- `GET /api/v1/mqtt/messages` - Získání historie zpráv
+
+### Databázové Endpointy
+
+- `GET /api/v1/database/status` - Stav databáze
+- `POST /api/v1/database/populate-all` - Naplnění testovacími daty
+
+## 📊 Databázový model
+
+Hlavní entity:
+- `User` - Uživatelé systému
+- `Device` - BLE zařízení
+- `Topic` - MQTT témata
+- `MQTTEntry` - Záznamy MQTT zpráv
+- `Location` - Umístění zařízení
+- `LocationType` - Typy umístění
+
+## 🔒 Zabezpečení
+
+- MQTT komunikace přes TLS
+- CORS ochrana pro API
+- Validace dat pomocí Pydantic
+- Bezpečné ukládání citlivých údajů
+
+## 🚦 Logování
+
+Aplikace používá standardní Python logging:
+- INFO úroveň pro běžné operace
+- WARNING pro neočekávané situace
+- ERROR pro chyby vyžadující pozornost

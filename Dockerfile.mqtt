@@ -17,7 +17,5 @@ RUN mkdir -p /code_root/app && chmod 755 /code_root/app
 # Copy the application code
 COPY . .
 
-EXPOSE 8000
-
-# Run FastAPI with the correct module path
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run MQTT service
+CMD ["python", "-m", "app.mqtt.service"] 

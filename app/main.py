@@ -1,82 +1,120 @@
+"""
+Hlavní modul aplikace.
+Inicializuje FastAPI aplikaci, databázi a MQTT klienta.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-
-from app.core.database import engine, Base, get_db
-# Only import the essential routers for now
-from app.api import mqtt
-from app.mqtt import mqtt_client
-from app.mqtt.handler import MQTTHandler
 import logging
 
-# Configure logging
+from app.core.container import container
+from app.config.settings import settings
+from app.routes import mqtt, database, auth, users
+from app.services.auth import create_default_roles # Import the new function
+
+# Konfigurace logování
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create tables in the database
-Base.metadata.create_all(bind=engine)
+def create_application() -> FastAPI:
+    """
+    Vytvoření a konfigurace FastAPI aplikace.
+    Nastavuje CORS, routery a dependency injection.
+    
+    Vrací:
+        FastAPI: Nakonfigurovaná FastAPI aplikace
+    """
+    # Vytvoření FastAPI instance
+    application = FastAPI(
+        title=settings.PROJECT_NAME,
+        description="API for collecting and processing BLE device data from AttentID scanners",
+        version="1.0.0"
+    )
+    
+    # Nastavení CORS
+    if settings.BACKEND_CORS_ORIGINS:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    
+    # Připojení API routeru
+    application.include_router(mqtt.router, prefix=settings.API_V1_STR)
+    application.include_router(database.router, prefix=settings.API_V1_STR)
+    application.include_router(auth.router) # No prefix for /api/auth
+    application.include_router(users.router) # Prefix /api/users is defined in users.py
+    
+    return application
 
-app = FastAPI(
-    title="AttentID BLE Scanner API",
-    description="API for collecting and processing BLE device data from AttentID scanners",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Include only the MQTT router for now
-app.include_router(mqtt.router, prefix="/mqtt", tags=["MQTT"])
-
-# MQTT client setup and connection
-mqtt_handler = None
+app = create_application()
 
 @app.on_event("startup")
 async def startup_event():
-    global mqtt_handler
+    """
+    Událost spuštění aplikace.
+    Inicializuje databázi a MQTT klienta.
+    """
+    # Inicializace databáze
+    container.database().create_database() # This likely creates tables
+
+    # Create default roles after tables are created
+    # We need a database session here.
+    # Get a new session from the factory provided by the container.
+    db = container.session()
+    try:
+        create_default_roles(db)
+    finally:
+        db.close()
     
-    # Get database session
-    db = next(get_db())
+    # Inicializace MQTT klienta
+    mqtt_client = container.mqtt_client()
+    mqtt_handler = container.mqtt_handler()
     
-    # Create MQTT handler
-    mqtt_handler = MQTTHandler(db)
+    # Registrace MQTT handleru zpráv
+    mqtt_client.register_handler(
+        settings.MQTT_TOPIC,
+        mqtt_handler.process_message
+    )
     
-    # Define message handler
-    def handle_mqtt_message(topic, payload, qos):
-        # Process MQTT message
-        mqtt_handler.process_message(topic, payload, qos)
-    
-    # Register handler for the specific topic
-    mqtt_client.register_handler("/rv-catcher/ble_devices", handle_mqtt_message)
-    
-    # Connect to MQTT broker
-    connected = mqtt_client.connect()
-    if connected:
-        logger.info("MQTT client connected successfully")
+    # Připojení k MQTT brokeru
+    if mqtt_client.connect():
+        logger.info("MQTT klient úspěšně připojen")
     else:
-        logger.error("Failed to connect MQTT client")
+        logger.error("Nepodařilo se připojit MQTT klienta")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Disconnect MQTT client
-    mqtt_client.disconnect()
-    logger.info("Application shutdown complete")
+    """
+    Událost vypnutí aplikace.
+    Odpojí MQTT klienta a vyčistí prostředky.
+    """
+    # Odpojení MQTT klienta
+    container.mqtt_client().disconnect()
+    logger.info("Aplikace úspěšně ukončena")
 
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to the AttentID BLE Scanner API",
+        "message": f"Welcome to the {settings.PROJECT_NAME}",
         "documentation": "/docs",
+        "version": "1.0.0",
         "endpoints": {
             "mqtt": {
-                "receive": "/mqtt/receive",
-                "messages": "/mqtt/messages"
+                "base": f"{settings.API_V1_STR}/mqtt",
+                "receive": f"{settings.API_V1_STR}/mqtt/receive",
+                "messages": f"{settings.API_V1_STR}/mqtt/messages"
+            },
+            "database": {
+                "base": f"{settings.API_V1_STR}/database",
+                "status": f"{settings.API_V1_STR}/database/status",
+                "populate": f"{settings.API_V1_STR}/database/populate-all"
+            },
+            "auth": {
+                "base": "/api/auth",
+                "register": "/api/auth/register"
             }
         }
     }
