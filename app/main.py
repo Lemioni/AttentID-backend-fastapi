@@ -70,20 +70,20 @@ async def startup_event():
         db.close()
     
     # Inicializace MQTT klienta
-    mqtt_client = container.mqtt_client()
-    mqtt_handler = container.mqtt_handler()
+    # mqtt_client = container.mqtt_client()
+    # mqtt_handler = container.mqtt_handler()
     
     # Registrace MQTT handleru zpráv
-    mqtt_client.register_handler(
-        settings.MQTT_TOPIC,
-        mqtt_handler.process_message
-    )
+    # mqtt_client.register_handler(
+    #     settings.MQTT_TOPIC,
+    #     mqtt_handler.process_message
+    # )
     
     # Připojení k MQTT brokeru
-    if mqtt_client.connect():
-        logger.info("MQTT klient úspěšně připojen")
-    else:
-        logger.error("Nepodařilo se připojit MQTT klienta")
+    # if mqtt_client.connect():
+    #     logger.info("MQTT klient úspěšně připojen")
+    # else:
+    #     logger.error("Nepodařilo se připojit MQTT klienta")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -92,7 +92,7 @@ async def shutdown_event():
     Odpojí MQTT klienta a vyčistí prostředky.
     """
     # Odpojení MQTT klienta
-    container.mqtt_client().disconnect()
+    # container.mqtt_client().disconnect()
     logger.info("Aplikace úspěšně ukončena")
 
 @app.get("/")
