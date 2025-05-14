@@ -9,7 +9,7 @@ import logging
 
 from app.core.container import container
 from app.config.settings import settings
-from app.routes import mqtt, database, auth, users
+from app.routes import mqtt, database, auth, users, devices
 from app.services.auth import create_default_roles # Import the new function
 
 # Konfigurace logování
@@ -46,6 +46,7 @@ def create_application() -> FastAPI:
     application.include_router(database.router, prefix=settings.API_V1_STR)
     application.include_router(auth.router) # No prefix for /api/auth
     application.include_router(users.router) # Prefix /api/users is defined in users.py
+    application.include_router(devices.router, prefix=settings.API_V1_STR)
     
     return application
 

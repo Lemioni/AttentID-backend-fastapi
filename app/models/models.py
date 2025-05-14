@@ -96,7 +96,7 @@ class Device(Base):
     """
     __tablename__ = "device"
     
-    id_device = Column(BigInteger, primary_key=True)
+    id_device = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # Automaticky generované UUID
     description = Column(Text)
     identification = Column(Text)
     mac_address = Column(Text)
@@ -109,10 +109,10 @@ class Device(Base):
 class Location(Base):
     __tablename__ = "locations"
     
-    id_locations = Column(BigInteger, primary_key=True)
+    id_locations = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # Changed to UUID string
     description = Column(Text)
     id_location_type = Column(BigInteger, ForeignKey("location_type.id_location_type"))
-    id_device = Column(BigInteger, ForeignKey("device.id_device"))
+    id_device = Column(String, ForeignKey("device.id_device"))  # Changed to String to match device ID
     id_placed_by = Column(String, ForeignKey("users.id")) # Changed id_users_placed to id_placed_by and BigInteger to String, updated ForeignKey
     when_created = Column(DateTime)
     

@@ -27,8 +27,11 @@ def get_password_hash(password: str) -> str:
 def create_default_roles(db: Session):
     """
     Checks for default roles and creates them if they don't exist.
-    Currently, creates a "common user" role with ID 1.
+    Creates the following default roles:
+    - ID 1: Common User (běžný uživatel)
+    - ID 2: Administrator (administrátor s rozšířenými právy)
     """
+    # Create common user role (ID 1)
     common_user_role = db.query(Role).filter(Role.id_roles == 1).first()
     if not common_user_role:
         default_role = Role(id_roles=1, description="Common User")
@@ -43,6 +46,22 @@ def create_default_roles(db: Session):
         except Exception as e:
             db.rollback()
             print(f"DEBUG: Error creating default role: {str(e)}")
+    
+    # Create administrator role (ID 2)
+    admin_role = db.query(Role).filter(Role.id_roles == 2).first()
+    if not admin_role:
+        admin_role = Role(id_roles=2, description="Administrator")
+        db.add(admin_role)
+        try:
+            db.commit()
+            db.refresh(admin_role)
+            print("DEBUG: Default role 'Administrator' (ID 2) created.")
+        except IntegrityError:
+            db.rollback()
+            print("DEBUG: Default role 'Administrator' (ID 2) already exists or another error occurred.")
+        except Exception as e:
+            db.rollback()
+            print(f"DEBUG: Error creating admin role: {str(e)}")
 
 
 async def create_user_account(db: Session, user_data: UserRegisterRequest) -> User | None:
@@ -179,25 +198,57 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     Získá aktuálně přihlášeného aktivního uživatele.
     Používá se jako FastAPI dependency.
     """
-    # V modelu User je 'active' datetime objekt. Předpokládáme, že pokud je nastaven, uživatel je aktivní.
-    # Pro explicitní kontrolu neaktivity by bylo potřeba porovnat s aktuálním časem
-    # nebo mít dedikovaný boolean 'is_active' flag.
-    # Prozatím, pokud 'active' existuje (není None), považujeme uživatele za aktivního.
-    # Podle schématu UserBase je 'active' typu datetime.
-    # V User modelu je 'active' DateTime, nullable=False. Takže by měl vždy existovat.
-    # Otázka je, co znamená "neaktivní". Pokud by to znamenalo, že 'active' je starší než nějaký limit,
-    # pak by zde byla potřeba další logika. Prozatím předpokládáme, že existence záznamu = aktivní.
-    # Pokud by 'active' znamenalo 'last_login_time', pak by se zde nekontrolovala aktivita.
-    # Vzhledem k názvu funkce "get_current_ACTIVE_user", je nutné nějak ověřit aktivitu.
-    # V modelu User je pole 'active' typu DateTime a je non-nullable.
-    # Předpokládejme, že 'active' se aktualizuje při každé aktivitě a pokud by uživatel byl deaktivován,
-    # nastavilo by se např. na NULL nebo by existoval jiný flag.
-    # Pro jednoduchost, pokud je uživatel nalezen, považujeme ho za aktivního.
-    # Pokud by existoval explicitní atribut 'is_active' (boolean), bylo by to lepší.
-    # V User modelu je pole 'active' (DateTime), které se nastavuje při vytvoření.
-    # Není zde jasná definice "neaktivního" uživatele.
-    # Prozatím, pokud je uživatel načten, považujeme ho za aktivního.
-    # Pokud by byla potřeba sofistikovanější kontrola (např. flag 'is_deactivated'), musela by se přidat.
-    if current_user.active is None: # Toto by nemělo nastat, pokud je 'active' non-nullable a vždy se nastavuje
-        raise HTTPException(status_code=400, detail="Neaktivní uživatel")
+    return current_user
+
+def get_user_roles(db: Session, user_id: str) -> list:
+    """
+    Získá seznam rolí uživatele podle jeho ID.
+    
+    Args:
+        db (Session): Databázová session.
+        user_id (str): ID uživatele.
+        
+    Returns:
+        list: Seznam ID rolí uživatele.
+    """
+    roles = db.query(Role.id_roles).join(
+        UserRole, UserRole.id_roles == Role.id_roles
+    ).filter(
+        UserRole.id == user_id,
+        UserRole.when_deactivated.is_(None)
+    ).all()
+    
+    return [role.id_roles for role in roles]
+
+async def check_admin_role(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Ověří, zda má uživatel administrátorskou roli (role s ID 2).
+    Používá se jako FastAPI dependency pro zabezpečení endpointů,
+    které by měly být přístupné pouze pro administrátory.
+    
+    Systém rolí:
+    - ID 1: Běžný uživatel (Common User)
+    - ID 2: Administrátor (Admin)
+    
+    Args:
+        db (Session): Databázová session.
+        current_user (User): Aktuálně přihlášený uživatel.
+        
+    Returns:
+        User: Aktuálně přihlášený uživatel, pokud má administrátorskou roli.
+        
+    Raises:
+        HTTPException 403: Pokud uživatel nemá administrátorskou roli.
+    """
+    user_roles = get_user_roles(db, current_user.id)
+    
+    if 2 not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Pro tuto akci nemáte dostatečná oprávnění. Vyžaduje se role administrátora."
+        )
+    
     return current_user
