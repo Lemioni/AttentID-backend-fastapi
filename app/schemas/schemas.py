@@ -15,7 +15,7 @@ class UserCreate(UserBase):
     pass
 
 class User(UserBase):
-    id_users: int
+    id_users: str
     created: Optional[datetime] = None
     active: Optional[datetime] = None
     
@@ -29,7 +29,7 @@ class UserRegisterRequest(BaseModel):
     name: str
 
 class UserRegisterResponseUser(BaseModel):
-    id_users: int
+    id_users: str
     email: EmailStr
     name: str
     created: datetime
@@ -59,7 +59,7 @@ class UserMeResponse(BaseModel):
     Schéma pro odpověď endpointu /api/users/me.
     Obsahuje detailní informace o přihlášeném uživateli včetně jeho rolí.
     """
-    id_users: int  # ID uživatele
+    id_users: str  # ID uživatele
     name: str  # Jméno uživatele
     email: EmailStr  # Emailová adresa uživatele
     created: datetime  # Datum a čas vytvoření účtu uživatele

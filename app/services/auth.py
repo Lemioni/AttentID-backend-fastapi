@@ -106,11 +106,11 @@ async def create_user_account(db: Session, user_data: UserRegisterRequest) -> Us
         # Given the schema, these must be valid user IDs.
         # Simplest assumption: the user is creating their own role link.
         user_role_entry = UserRole(
-            id=new_user.id,  # Foreign key to users.id, part of UserRole's composite PK
-            id_roles=default_role_id,
-            id_users_created=new_user.id, # User's own ID, as they are creating this role assignment
-            id_users_deactivated=None,    # Null for an active role assignment
-            when_created=current_time
+                    id=new_user.id,
+                    id_roles=default_role_id,
+                    id_created_by=new_user.id,
+                    id_deactivated_by=None,
+                    when_created=current_time
             # when_deactivated is also None for an active role, and is nullable in the model
         )
         db.add(user_role_entry)

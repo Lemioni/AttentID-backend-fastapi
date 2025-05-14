@@ -36,7 +36,7 @@ async def register_user(
     return UserRegisterResponse(
         message="Registrace úspěšná.",
         user=UserRegisterResponseUser(
-            id=created_user.id,  # Changed from id_users to id
+            id_users=created_user.id,
             email=created_user.email,
             name=created_user.name,
             created=created_user.created

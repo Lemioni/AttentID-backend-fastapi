@@ -23,7 +23,10 @@ class Database:
         )
     
     def create_database(self) -> None:
-        """Create all database tables."""
+        """Create all database tables. Drops the users table first for development."""
+        # WARNING: This will delete all data in the 'users' table on each startup.
+        # Not suitable for production. Use Alembic for production migrations.
+        Base.metadata.drop_all(bind=self.engine)
         Base.metadata.create_all(bind=self.engine)
     
     def get_session(self) -> Generator:
