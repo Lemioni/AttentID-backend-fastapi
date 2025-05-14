@@ -60,7 +60,7 @@ class UserMeResponse(BaseModel):
     Schéma pro odpověď endpointu /api/users/me.
     Obsahuje detailní informace o přihlášeném uživateli včetně jeho rolí.
     """
-    id_users: str  # ID uživatele
+    id: str  # ID uživatele
     name: str  # Jméno uživatele
     email: EmailStr  # Emailová adresa uživatele
     created: datetime  # Datum a čas vytvoření účtu uživatele
