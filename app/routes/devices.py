@@ -100,3 +100,33 @@ def read_device(
         HTTPException 404: Pokud zařízení s daným ID neexistuje.
     """
     return devices.get_device(db=db, device_id=device_id)
+
+@router.put("/{device_id}", response_model=schemas.Device)
+def update_device(
+    device_id: str,
+    device_data: schemas.DeviceUpdate,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(check_admin_role)
+):
+    """
+    Aktualizuje údaje o zařízení. Vyžaduje administrátorská práva (role ID 2).
+    
+    Umožňuje aktualizovat následující údaje:
+    - Popis zařízení
+    - MAC adresu zařízení
+    - GPS souřadnice (zeměpisná šířka a délka)
+    
+    Args:
+        device_id: ID zařízení, které má být aktualizováno.
+        device_data: Nová data zařízení.
+        db: Databázová session.
+        current_user: Aktuálně přihlášený uživatel s administrátorskými právy.
+        
+    Returns:
+        Aktualizované zařízení.
+        
+    Raises:
+        HTTPException 403: Pokud uživatel nemá administrátorská práva.
+        HTTPException 404: Pokud zařízení s daným ID neexistuje.
+    """
+    return devices.update_device_service(db=db, device_id=device_id, device_data=device_data)

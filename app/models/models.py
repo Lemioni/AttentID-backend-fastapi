@@ -100,6 +100,8 @@ class Device(Base):
     description = Column(Text)
     identification = Column(Text)
     mac_address = Column(Text)
+    latitude = Column(Float, nullable=True)  # GPS souřadnice - zeměpisná šířka
+    longitude = Column(Float, nullable=True)  # GPS souřadnice - zeměpisná délka
     id_user = Column(String, ForeignKey("users.id")) # Changed id_users to id_user and BigInteger to String, updated ForeignKey
     
     # Relationships

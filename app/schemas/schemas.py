@@ -185,6 +185,8 @@ class DeviceCreate(BaseModel):
     description: Optional[str] = None
     identification: str
     mac_address: Optional[str] = None
+    latitude: Optional[float] = None  # GPS souřadnice - zeměpisná šířka
+    longitude: Optional[float] = None  # GPS souřadnice - zeměpisná délka
     
     @validator('mac_address')
     def validate_mac_address(cls, v):
@@ -196,6 +198,20 @@ class DeviceCreate(BaseModel):
         if not re.match(pattern, v):
             raise ValueError('MAC adresa musí být ve formátu XX:XX:XX:XX:XX:XX nebo XX-XX-XX-XX-XX-XX')
         return v
+        
+    @validator('latitude')
+    def validate_latitude(cls, v):
+        """Validace zeměpisné šířky v rozsahu -90 až 90."""
+        if v is not None and (v < -90 or v > 90):
+            raise ValueError('Zeměpisná šířka musí být v rozsahu od -90 do 90 stupňů')
+        return v
+        
+    @validator('longitude')
+    def validate_longitude(cls, v):
+        """Validace zeměpisné délky v rozsahu -180 až 180."""
+        if v is not None and (v < -180 or v > 180):
+            raise ValueError('Zeměpisná délka musí být v rozsahu od -180 do 180 stupňů')
+        return v
 
 class DeviceUpdate(BaseModel):
     """
@@ -204,6 +220,22 @@ class DeviceUpdate(BaseModel):
     """
     description: Optional[str] = None
     mac_address: Optional[str] = None
+    latitude: Optional[float] = None  # GPS souřadnice - zeměpisná šířka
+    longitude: Optional[float] = None  # GPS souřadnice - zeměpisná délka
+    
+    @validator('latitude')
+    def validate_latitude(cls, v):
+        """Validace zeměpisné šířky v rozsahu -90 až 90."""
+        if v is not None and (v < -90 or v > 90):
+            raise ValueError('Zeměpisná šířka musí být v rozsahu od -90 do 90 stupňů')
+        return v
+        
+    @validator('longitude')
+    def validate_longitude(cls, v):
+        """Validace zeměpisné délky v rozsahu -180 až 180."""
+        if v is not None and (v < -180 or v > 180):
+            raise ValueError('Zeměpisná délka musí být v rozsahu od -180 do 180 stupňů')
+        return v
 
 class Device(BaseModel):
     """
@@ -214,6 +246,8 @@ class Device(BaseModel):
     description: Optional[str] = None
     identification: str
     mac_address: Optional[str] = None
+    latitude: Optional[float] = None  # GPS souřadnice - zeměpisná šířka
+    longitude: Optional[float] = None  # GPS souřadnice - zeměpisná délka
     id_user: str  # ID uživatele, který zařízení přidal
     
     class Config:
