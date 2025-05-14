@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
 from typing import Optional
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.services.users import get_user_by_email # Assuming this function exists or will be created if needed
@@ -23,6 +24,80 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hashes a plain password."""
     return pwd_context.hash(password)
+
+def create_default_admin_user(db: Session) -> Optional[User]:
+    """
+    Creates a default admin user if it doesn't already exist.
+    
+    Args:
+        db (Session): Database session
+        
+    Returns:
+        Optional[User]: Created admin user or None if already exists
+    """
+    # Check if admin user already exists
+    admin_email = settings.DEFAULT_ADMIN_EMAIL
+    existing_admin = get_user_by_email(db, admin_email)
+    
+    if existing_admin:
+        print("DEBUG: Default admin user already exists.")
+        return None
+    
+    # Create admin user
+    hashed_password = get_password_hash(settings.DEFAULT_ADMIN_PASSWORD)  # Default password should be changed after first login
+    current_time = datetime.now(timezone.utc)
+    
+    admin_user = User(
+        id=f"us-{uuid.uuid4()}",  # Generate UUID for admin
+        email=admin_email,
+        name=settings.DEFAULT_ADMIN_NAME,
+        password_hash=hashed_password,
+        created=current_time,
+        active=current_time
+    )
+    
+    db.add(admin_user)
+    
+    try:
+        db.commit()
+        db.refresh(admin_user)
+        print(f"DEBUG: Created default admin user with ID: {admin_user.id}")
+        
+        # Assign administrator role (ID 2) to the admin user
+        admin_role_entry = UserRole(
+            id=admin_user.id,
+            id_roles=2,  # Administrator role ID
+            id_created_by=admin_user.id,  # Admin creates their own role
+            id_deactivated_by=None,
+            when_created=current_time,
+            when_deactivated=None
+        )
+        
+        # Also assign common user role (ID 1) to the admin user
+        common_role_entry = UserRole(
+            id=admin_user.id,
+            id_roles=1,  # Common user role ID
+            id_created_by=admin_user.id,
+            id_deactivated_by=None,
+            when_created=current_time,
+            when_deactivated=None
+        )
+        
+        db.add(admin_role_entry)
+        db.add(common_role_entry)
+        db.commit()
+        
+        print("DEBUG: Admin user roles assigned successfully.")
+        return admin_user
+        
+    except IntegrityError as ie:
+        db.rollback()
+        print(f"DEBUG: IntegrityError in create_default_admin_user: {str(ie)}")
+        return None
+    except Exception as e:
+        db.rollback()
+        print(f"DEBUG: Error creating admin user: {str(e)}")
+        raise e
 
 def create_default_roles(db: Session):
     """

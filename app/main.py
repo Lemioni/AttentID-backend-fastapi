@@ -10,7 +10,7 @@ import logging
 from app.core.container import container
 from app.config.settings import settings
 from app.routes import mqtt, database, auth, users, devices
-from app.services.auth import create_default_roles # Import the new function
+from app.services.auth import create_default_roles, create_default_admin_user # Import both functions
 
 # Konfigurace logování
 logging.basicConfig(level=logging.INFO)
@@ -61,12 +61,16 @@ async def startup_event():
     # Inicializace databáze
     container.database().create_database() # This likely creates tables
 
-    # Create default roles after tables are created
+    # Create default roles and admin user after tables are created
     # We need a database session here.
     # Get a new session from the factory provided by the container.
     db = container.session()
     try:
+        # First create default roles
         create_default_roles(db)
+        
+        # Then create default admin user
+        create_default_admin_user(db)
     finally:
         db.close()
     
