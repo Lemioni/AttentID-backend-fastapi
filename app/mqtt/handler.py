@@ -43,13 +43,22 @@ class MQTTHandler:
         """
         try:
             logger.info(f"Zpracování zprávy z tématu: {topic}")
+
+            # Decode payload from bytes to string (assuming UTF-8)
+            if isinstance(payload, bytes):
+                payload_str = payload.decode('utf-8')
+            else:
+                payload_str = payload # Already a string
+
+            # Replace single quotes with double quotes for JSON compatibility
+            payload_for_json = payload_str.replace("'", '"')
             
             # Inicializace device_id jako None
             device_id = None
             
             # Nejprve zkusíme parsovat jako JSON
             try:
-                payload_data = json.loads(payload)
+                payload_data = json.loads(payload_for_json)
                 logger.info(f"Parsovaný JSON payload: {payload_data}")
                 
                 # Pokud payload obsahuje device_id, použijeme ho
@@ -57,19 +66,19 @@ class MQTTHandler:
                     device_id = payload_data['device_id']
                     logger.info(f"Použit device_id z payloadu: {device_id}")
             except json.JSONDecodeError:
-                logger.warning(f"Payload není validní JSON: {payload}")
+                logger.warning(f"Payload není validní JSON: {payload_str}")
                 
                 # Zpracování Python dictionary formátu z BLE scanneru
-                if "'mac':" in payload or "'data':" in payload:
+                # Use the decoded string for this check
+                if "'mac':" in payload_str or "'data':" in payload_str:
                     logger.info("Detekována BLE data zařízení, pokus o extrakci informací")
                     
                     # Převod Python dict stringu na JSON string
+                    # The payload_for_json already has single quotes replaced
                     try:
-                        # Nahrazení jednoduchých uvozovek dvojitými pro JSON kompatibilitu
-                        fixed_payload = payload.replace("'", '"')
                         # Pokus o parsování upraveného payloadu
                         try:
-                            json_data = json.loads(fixed_payload)
+                            json_data = json.loads(payload_for_json) # Use payload_for_json which has quotes replaced
                             logger.info("Úspěšný převod Python dict na JSON")
                             
                             # Extrakce MAC adresy
@@ -78,7 +87,8 @@ class MQTTHandler:
                                 logger.info(f"Extrahována MAC adresa: {device_id}")
                         except json.JSONDecodeError:
                             # Pokud to nefunguje, použijeme regex pro extrakci MAC
-                            mac_match = re.search(r"'mac':\s*'([0-9A-F:]+)'", payload, re.IGNORECASE)
+                            # Use payload_str for regex as it's the original string content
+                            mac_match = re.search(r"'mac':\s*'([0-9A-F:]+)'", payload_str, re.IGNORECASE)
                             if mac_match:
                                 device_id = mac_match.group(1)
                                 logger.info(f"Extrahována MAC adresa pomocí regex: {device_id}")
@@ -86,9 +96,10 @@ class MQTTHandler:
                         logger.error(f"Chyba při extrakci informací: {e}")
             
             # Vytvoření objektu zprávy
+            # Ensure MQTTMessage stores the decoded string representation
             message = MQTTMessage(
                 topic=topic,
-                payload=payload,
+                payload=payload_str, # Store the decoded string
                 qos=qos,
                 device_id=device_id
             )
