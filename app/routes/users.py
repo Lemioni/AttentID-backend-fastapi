@@ -35,8 +35,8 @@ async def read_users_me(
         schemas.UserMeResponse: Pydantic model s informacemi o uživateli.
     """
     # Volání servisní funkce pro získání dat uživatele
-    # current_user.id_users je ID přihlášeného uživatele z JWT tokenu
-    user_details = user_service.get_user_me_service(db, user_id=current_user.id_users)
+    # current_user.id je ID přihlášeného uživatele (UUID string)
+    user_details = user_service.get_user_me_service(db, user_id=current_user.id)
     if not user_details:
         # Tento případ by neměl nastat, pokud get_user_me_service správně vyvolá výjimku
         # nebo pokud je uživatel vždy nalezen (což by měl být po úspěšné autentizaci).

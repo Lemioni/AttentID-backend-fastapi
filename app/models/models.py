@@ -3,6 +3,7 @@ Modul definující databázové modely aplikace.
 Obsahuje SQLAlchemy modely pro všechny entity v systému.
 """
 
+import uuid  # Added import for uuid
 from sqlalchemy import Column, BigInteger, String, ForeignKey, DateTime, Text, Boolean, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -16,7 +17,7 @@ class User(Base):
     """
     __tablename__ = "users"
     
-    id_users = Column(BigInteger, primary_key=True)  # Primární klíč
+    id = Column(String, primary_key=True, default=lambda: f"us-{uuid.uuid4()}")  # Primární klíč, now UUID string
     email = Column(String, unique=True, index=True)  # Unikátní email uživatele
     name = Column(String) # Jméno uživatele
     password_hash = Column(String) # Hashované heslo uživatele
@@ -28,9 +29,9 @@ class User(Base):
     devices = relationship("Device", back_populates="user")  # Zařízení přiřazená uživateli
     #created_topics = relationship("Topic", back_populates="created_by")
     placed_locations = relationship("Location", back_populates="placed_by")
-    user_roles = relationship("UserRole", foreign_keys="UserRole.id_users", back_populates="user")
-    created_roles = relationship("UserRole", foreign_keys="UserRole.id_users_created", back_populates="created_by")
-    deactivated_roles = relationship("UserRole", foreign_keys="UserRole.id_users_deactivated", back_populates="deactivated_by")
+    user_roles = relationship("UserRole", foreign_keys="UserRole.id", back_populates="user") # Changed UserRole.id_users to UserRole.id
+    created_roles = relationship("UserRole", foreign_keys="UserRole.id_created_by", back_populates="created_by") # Changed UserRole.id_users_created to UserRole.id_created_by
+    deactivated_roles = relationship("UserRole", foreign_keys="UserRole.id_deactivated_by", back_populates="deactivated_by") # Changed UserRole.id_users_deactivated to UserRole.id_deactivated_by
 
 class Role(Base):
     __tablename__ = "roles"
@@ -45,29 +46,30 @@ class UserRole(Base):
     __tablename__ = "user_role"
     
     id_user_role = Column(BigInteger, primary_key=True)
-    id_users = Column(BigInteger, ForeignKey("users.id_users"))
+    id = Column(String, ForeignKey("users.id"))  # Changed id_users to id and BigInteger to String, updated ForeignKey
     id_roles = Column(BigInteger, ForeignKey("roles.id_roles"))
-    id_users_created = Column(BigInteger, ForeignKey("users.id_users"))
+    id_created_by = Column(String, ForeignKey("users.id"))  # Changed id_users_created to id_created_by and BigInteger to String, updated ForeignKey
     when_created = Column(DateTime)
-    id_users_deactivated = Column(BigInteger, ForeignKey("users.id_users"))
+    id_deactivated_by = Column(String, ForeignKey("users.id"))  # Changed id_users_deactivated to id_deactivated_by and BigInteger to String, updated ForeignKey
     when_deactivated = Column(DateTime)
     
     # Relationships
-    user = relationship("User", foreign_keys=[id_users], back_populates="user_roles")
+    user = relationship("User", foreign_keys=[id], back_populates="user_roles") # Changed id_users to id
     role = relationship("Role", back_populates="user_roles")
-    created_by = relationship("User", foreign_keys=[id_users_created], back_populates="created_roles")
-    deactivated_by = relationship("User", foreign_keys=[id_users_deactivated], back_populates="deactivated_roles")
+    created_by = relationship("User", foreign_keys=[id_created_by], back_populates="created_roles") # Changed id_users_created to id_created_by
+    deactivated_by = relationship("User", foreign_keys=[id_deactivated_by], back_populates="deactivated_roles") # Changed id_users_deactivated to id_deactivated_by
 
 class Topic(Base):
     """
     Model reprezentující MQTT téma.
+    Zparsované MQTT zprávy se ukládají do databáze.
     Sleduje témata a jejich metadata.
     """
     __tablename__ = "topics"
     
     id_topics = Column(BigInteger, primary_key=True)  # Primární klíč
     topic = Column(Text)  # Název tématu
-    id_users_created = Column(BigInteger, ForeignKey("users.id_users"))  # Tvůrce tématu
+    id_created_by = Column(String, ForeignKey("users.id"))  # Tvůrce tématu, Changed id_users_created to id_created_by and BigInteger to String, updated ForeignKey
     when_created = Column(DateTime, default=datetime.now)  # Datum vytvoření
     
     # Relace
@@ -98,7 +100,7 @@ class Device(Base):
     description = Column(Text)
     identification = Column(Text)
     mac_address = Column(Text)
-    id_users = Column(BigInteger, ForeignKey("users.id_users"))
+    id_user = Column(String, ForeignKey("users.id")) # Changed id_users to id_user and BigInteger to String, updated ForeignKey
     
     # Relationships
     user = relationship("User", back_populates="devices")
@@ -111,7 +113,7 @@ class Location(Base):
     description = Column(Text)
     id_location_type = Column(BigInteger, ForeignKey("location_type.id_location_type"))
     id_device = Column(BigInteger, ForeignKey("device.id_device"))
-    id_users_placed = Column(BigInteger, ForeignKey("users.id_users"))
+    id_placed_by = Column(String, ForeignKey("users.id")) # Changed id_users_placed to id_placed_by and BigInteger to String, updated ForeignKey
     when_created = Column(DateTime)
     
     # Relationships

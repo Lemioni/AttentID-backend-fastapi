@@ -8,13 +8,13 @@ from fastapi import HTTPException, status
 from app.models import models
 from app.schemas import schemas
 
-def get_user_me_service(db: Session, user_id: int) -> schemas.UserMeResponse:
+def get_user_me_service(db: Session, user_id: str) -> schemas.UserMeResponse:  # Changed user_id type to str
     """
     Získá detailní informace o přihlášeném uživateli včetně jeho rolí.
 
     Args:
         db (Session): Databázová session.
-        user_id (int): ID přihlášeného uživatele.
+        user_id (str): ID přihlášeného uživatele. # Changed user_id type to str
 
     Returns:
         schemas.UserMeResponse: Objekt s daty uživatele a jeho rolemi.
@@ -25,12 +25,12 @@ def get_user_me_service(db: Session, user_id: int) -> schemas.UserMeResponse:
     # Načtení uživatele z databáze
     # Query for the user and their roles using joins
     user_db = db.query(
-        models.User.id_users,
+        models.User.id,  # Changed id_users to id
         models.User.name,
         models.User.email,
         models.User.created,
         models.User.active
-    ).filter(models.User.id_users == user_id).first()
+    ).filter(models.User.id == user_id).first() # Changed id_users to id
 
     if not user_db:
         # Tento případ by neměl nastat, pokud je uživatel autentizován
@@ -45,7 +45,7 @@ def get_user_me_service(db: Session, user_id: int) -> schemas.UserMeResponse:
         models.Role.id_roles,
         models.Role.description
     ).join(models.UserRole, models.UserRole.id_roles == models.Role.id_roles)\
-    .filter(models.UserRole.id_users == user_id)\
+    .filter(models.UserRole.id == user_id)\
     .filter(models.UserRole.when_deactivated.is_(None)).all() # Zajistíme, že role jsou aktivní
 
     # Příprava seznamu rolí pro odpověď
@@ -56,7 +56,7 @@ def get_user_me_service(db: Session, user_id: int) -> schemas.UserMeResponse:
 
     # Sestavení odpovědi
     user_response = schemas.UserMeResponse(
-        id_users=user_db.id_users,
+        id=user_db.id,  # Changed id_users to id
         name=user_db.name,
         email=user_db.email,
         created=user_db.created,
