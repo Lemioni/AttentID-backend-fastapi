@@ -11,13 +11,37 @@ import re
 # User schemas
 class UserBase(BaseModel):
     email: Optional[str] = None
+    name: Optional[str] = None
 
 class UserCreate(UserBase):
-    pass
+    password: str
+
+class UserCreateAdmin(UserCreate):
+    """Schéma pro vytvoření uživatele administrátorem."""
+    id: Optional[str] = None  # Volitelné ID uživatele (bez prefixu 'us-')
+    roles: List[int] = [1]  # Seznam ID rolí, výchozí je běžný uživatel (ID 1)
+    
+class UserUpdateAdmin(BaseModel):
+    """Schéma pro aktualizaci uživatele administrátorem."""
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    password: Optional[str] = None
+    roles: Optional[List[int]] = None
 
 class User(UserBase):
-    id_users: str
+    id: str
     created: Optional[datetime] = None
+    active: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class UserListResponse(User):
+    """Schéma pro seznam uživatelů."""
+    id: str
+    email: str
+    name: str
+    created: datetime
     active: Optional[datetime] = None
     
     class Config:

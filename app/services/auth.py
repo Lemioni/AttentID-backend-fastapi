@@ -1,29 +1,33 @@
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
 from typing import Optional
 import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.services.users import get_user_by_email # Assuming this function exists or will be created if needed
 
+from app.core.password_utils import verify_password, get_password_hash
 from app.models.models import User, UserRole, Role
 from app.schemas.schemas import UserRegisterRequest, TokenData
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 from app.config.settings import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Přesunutí funkce get_user_by_email z users.py přímo do auth.py
+# pro odstranění cirkulárního importu
+def get_user_by_email(db: Session, email: str) -> User | None:
+    """
+    Získá uživatele podle emailové adresy.
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain password against a hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    Args:
+        db (Session): Databázová session.
+        email (str): Emailová adresa uživatele.
 
-def get_password_hash(password: str) -> str:
-    """Hashes a plain password."""
-    return pwd_context.hash(password)
+    Returns:
+        User | None: Objekt uživatele nebo None, pokud nebyl nalezen.
+    """
+    return db.query(User).filter(User.email == email).first()
 
 def create_default_admin_user(db: Session) -> Optional[User]:
     """
