@@ -87,7 +87,7 @@ def get_user_by_id(db: Session, user_id: str) -> models.User | None:
     """
     return db.query(models.User).filter(models.User.id == user_id).first()
 
-def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> List[models.User]:
+def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> List[schemas.UserListResponse]:
     """
     Získá seznam všech uživatelů.
 
@@ -97,9 +97,21 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> List[models.U
         limit (int, optional): Maximální počet vrácených záznamů. Výchozí je 100.
 
     Returns:
-        List[models.User]: Seznam uživatelů.
+        List[schemas.UserListResponse]: Seznam uživatelů.
     """
-    return db.query(models.User).offset(skip).limit(limit).all()
+    users = db.query(models.User).offset(skip).limit(limit).all()
+    
+    # Convert to UserListResponse and ensure name is not None
+    return [
+        schemas.UserListResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name or "",  # Use empty string if name is None
+            created=user.created,
+            active=user.active
+        )
+        for user in users
+    ]
 
 def create_user(db: Session, user_data: schemas.UserCreateAdmin, admin_user_id: str) -> models.User:
     """

@@ -4,9 +4,7 @@ Certificate routes for handling certificate generation and verification.
 
 from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from app.models.models import User, Certificate
 from app.schemas.schemas import CertificateCreate, CertificateResponse, CertificateVerify
@@ -88,45 +86,6 @@ async def get_user_attendance_certificates(
     return get_user_certificates(db, current_user.id, skip, limit)
 
 @router.get(
-    "/all",
-    response_model=List[CertificateResponse],
-    summary="Get all certificates in system",
-    description="Admin endpoint to retrieve all certificates in the system."
-)
-async def get_all_certificates(
-    skip: int = 0, 
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Get all certificates in the system (admin only).
-    
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        db: Database session
-        current_user: Currently authenticated user
-        
-    Returns:
-        List of certificates
-    """
-    # Check if user has admin role by checking user roles
-    from app.services.auth import get_user_roles
-    
-    user_roles = get_user_roles(db, current_user.id)
-    
-    # Check if the user has admin role (ID 2)
-    if 2 not in user_roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access all certificates"
-        )
-    
-    certificates = db.query(Certificate).offset(skip).limit(limit).all()
-    return certificates
-
-@router.get(
     "/{certificate_id}", 
     response_model=CertificateResponse,
     summary="Get certificate details",
@@ -180,56 +139,3 @@ async def verify_certificate_authenticity(
     """
     certificate = verify_certificate(db, verify_data.certificate_id)
     return certificate
-
-@router.get("/debug_presence/{raspberry_uuid}/{user_id}", response_model=dict)
-async def debug_presence_verification(
-    raspberry_uuid: str,
-    user_id: str,
-    timestamp: Optional[datetime] = None,
-    db: Session = Depends(get_db)
-):
-    """Debug endpoint to check MQTT entries for a user at a location"""
-    # First query to find entries with raspberry UUID
-    rasp_query = """
-        SELECT topic, payload, time
-        FROM mqttenteries 
-        WHERE topic LIKE :rasp_pattern
-    """
-    
-    rasp_pattern = f"%{raspberry_uuid}%"
-    rasp_results = db.execute(text(rasp_query), {"rasp_pattern": rasp_pattern}).fetchall()
-    
-    # Second query to find entries with user ID
-    user_query = """
-        SELECT topic, payload, time
-        FROM mqttenteries 
-        WHERE topic LIKE :user_pattern
-    """
-    
-    user_pattern = f"%{user_id}%"
-    user_results = db.execute(text(user_query), {"user_pattern": user_pattern}).fetchall()
-    
-    # Third query to find entries with both
-    combined_query = """
-        SELECT topic, payload, time
-        FROM mqttenteries 
-        WHERE topic LIKE :combined_pattern
-    """
-    
-    combined_pattern = f"%{raspberry_uuid}%{user_id}%"
-    combined_results = db.execute(text(combined_query), {"combined_pattern": combined_pattern}).fetchall()
-    
-    return {
-        "raspberry_uuid": raspberry_uuid,
-        "user_id": user_id,
-        "timestamp": timestamp,
-        "rasp_pattern": rasp_pattern,
-        "rasp_entries_count": len(rasp_results),
-        "rasp_entries": [{"topic": row[0], "payload": row[1], "time": row[2]} for row in rasp_results[:5]],
-        "user_pattern": user_pattern,
-        "user_entries_count": len(user_results),
-        "user_entries": [{"topic": row[0], "payload": row[1], "time": row[2]} for row in user_results[:5]],
-        "combined_pattern": combined_pattern,
-        "combined_entries_count": len(combined_results),
-        "combined_entries": [{"topic": row[0], "payload": row[1], "time": row[2]} for row in combined_results]
-    }

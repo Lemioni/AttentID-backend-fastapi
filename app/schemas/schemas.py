@@ -11,7 +11,7 @@ import re
 # User schemas
 class UserBase(BaseModel):
     email: Optional[str] = None
-    name: Optional[str] = None
+    name: str = ""  # Default to empty string instead of None
 
 class UserCreate(UserBase):
     password: str
@@ -40,7 +40,7 @@ class UserListResponse(User):
     """Schéma pro seznam uživatelů."""
     id: str
     email: str
-    name: str
+    name: str  # This is required to be a valid string
     created: datetime
     active: Optional[datetime] = None
     
@@ -314,7 +314,7 @@ class CertificateBase(BaseModel):
 
 class CertificateCreate(CertificateBase):
     """Schema for creating a new certificate."""
-    pass
+    timestamp: Optional[datetime] = None  # Optional timestamp, defaults to current time if not provided
 
 class CertificateVerify(BaseModel):
     """Schema for verifying a certificate."""
