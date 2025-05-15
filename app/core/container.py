@@ -37,3 +37,10 @@ class Container(containers.DeclarativeContainer):
 
 # Create a global container instance
 container = Container() 
+# Dependency utility function
+def get_db_session() -> Session:
+    db = container.session() # Call the factory
+    try:
+        yield db
+    finally:
+        db.close()
