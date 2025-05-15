@@ -12,7 +12,7 @@ import logging
 
 from app.core.container import container
 from app.config.settings import settings
-from app.routes import mqtt, database, auth, users, devices, statistics # Added statistics
+from app.routes import mqtt, database, auth, users, devices, statistics, certificates # Added statistics and certificates
 from app.services.auth import create_default_roles, create_default_admin_user # Import both functions
 
 # Konfigurace logování
@@ -51,6 +51,7 @@ def create_application() -> FastAPI:
     application.include_router(users.router) # Prefix /api/users is defined in users.py
     application.include_router(devices.router, prefix=settings.API_V1_STR)
     application.include_router(statistics.router, prefix=settings.API_V1_STR) # Added statistics router
+    application.include_router(certificates.router, prefix=settings.API_V1_STR) # Added certificates router
 
     return application
 

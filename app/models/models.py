@@ -29,6 +29,7 @@ class User(Base):
     devices = relationship("Device", back_populates="user")  # Zařízení přiřazená uživateli
     #created_topics = relationship("Topic", back_populates="created_by")
     placed_locations = relationship("Location", back_populates="placed_by")
+    certificates = relationship("Certificate", back_populates="user")  # Certificates issued to the user
     user_roles = relationship("UserRole", foreign_keys="UserRole.id", back_populates="user") # Changed UserRole.id_users to UserRole.id
     created_roles = relationship("UserRole", foreign_keys="UserRole.id_created_by", back_populates="created_by") # Changed UserRole.id_users_created to UserRole.id_created_by
     deactivated_roles = relationship("UserRole", foreign_keys="UserRole.id_deactivated_by", back_populates="deactivated_by") # Changed UserRole.id_users_deactivated to UserRole.id_deactivated_by
@@ -138,3 +139,20 @@ class MQTTEntry(Base):
     
     # Relace
     topic_rel = relationship("Topic", back_populates="mqtt_entries")  # Téma zprávy
+
+class Certificate(Base):
+    """
+    Model representing attendance certificates in the system.
+    Stores certificate information including user ID, location (raspberry ID), and timestamp.
+    """
+    __tablename__ = "certificates"
+    
+    id = Column(String, primary_key=True, default=lambda: f"cert-{uuid.uuid4()}")  # Primary key with cert- prefix
+    user_id = Column(String, ForeignKey("users.id"))  # User who received the certificate
+    raspberry_uuid = Column(String)  # Location identifier (Raspberry Pi UUID)
+    timestamp = Column(DateTime, default=datetime.now)  # When the certificate was issued
+    verified = Column(Boolean, default=False)  # Whether the certificate has been verified
+    signature = Column(Text)  # Digital signature for verification
+    
+    # Relationship
+    user = relationship("User", back_populates="certificates")
