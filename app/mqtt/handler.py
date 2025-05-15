@@ -136,15 +136,16 @@ class MQTTHandler:
                 self.db.commit()
                 self.db.refresh(system_user)
             
-            logger.info(f"Použit systémový uživatel s ID: {system_user.id_users}")
+            logger.info(f"Použit systémový uživatel s ID: {system_user.id}")
             
+            # Získání nebo vytvoření tématu
             # Získání nebo vytvoření tématu
             topic_obj = self.db.query(Topic).filter(Topic.topic == message.topic).first()
             if not topic_obj:
                 logger.info(f"Vytváření nového tématu: {message.topic}")
                 topic_obj = Topic(
                     topic=message.topic,
-                    id_users_created=system_user.id_users,
+                    id_created_by=system_user.id,  # Changed from system_user.id_users
                     when_created=datetime.now()
                 )
                 self.db.add(topic_obj)
@@ -161,10 +162,11 @@ class MQTTHandler:
                     device = Device(
                         description=f"Automaticky vytvořené zařízení {message.device_id}",
                         identification=message.device_id,
-                        id_users=system_user.id_users
+                        id_user=system_user.id  # Changed from system_user.id_users
                     )
                     self.db.add(device)
                     self.db.commit()
+                    self.db.refresh(device)
                     self.db.refresh(device)
             
             # Vytvoření MQTT záznamu

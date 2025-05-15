@@ -96,7 +96,7 @@ class Device(Base):
     """
     __tablename__ = "device"
     
-    id_device = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # Automaticky generované UUID
+    id_device = Column(String, primary_key=True, default=lambda: f"dev-{uuid.uuid4()}")  # Automaticky generované UUID
     description = Column(Text)
     identification = Column(Text)
     mac_address = Column(Text)
