@@ -9,8 +9,8 @@ import logging
 
 from app.core.container import container
 from app.config.settings import settings
-from app.routes import mqtt, database, auth, users
-from app.services.auth import create_default_roles # Import the new function
+from app.routes import mqtt, database, auth, users, devices
+from app.services.auth import create_default_roles, create_default_admin_user # Import both functions
 
 # Konfigurace logování
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +46,7 @@ def create_application() -> FastAPI:
     application.include_router(database.router, prefix=settings.API_V1_STR)
     application.include_router(auth.router) # No prefix for /api/auth
     application.include_router(users.router) # Prefix /api/users is defined in users.py
+    application.include_router(devices.router, prefix=settings.API_V1_STR)
     
     return application
 
@@ -60,12 +61,16 @@ async def startup_event():
     # Inicializace databáze
     container.database().create_database() # This likely creates tables
 
-    # Create default roles after tables are created
+    # Create default roles and admin user after tables are created
     # We need a database session here.
     # Get a new session from the factory provided by the container.
     db = container.session()
     try:
+        # First create default roles
         create_default_roles(db)
+        
+        # Then create default admin user
+        create_default_admin_user(db)
     finally:
         db.close()
     

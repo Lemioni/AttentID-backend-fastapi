@@ -1,34 +1,116 @@
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
 from typing import Optional
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.services.users import get_user_by_email # Assuming this function exists or will be created if needed
 
+from app.core.password_utils import verify_password, get_password_hash
 from app.models.models import User, UserRole, Role
 from app.schemas.schemas import UserRegisterRequest, TokenData
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 from app.config.settings import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Přesunutí funkce get_user_by_email z users.py přímo do auth.py
+# pro odstranění cirkulárního importu
+def get_user_by_email(db: Session, email: str) -> User | None:
+    """
+    Získá uživatele podle emailové adresy.
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain password against a hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    Args:
+        db (Session): Databázová session.
+        email (str): Emailová adresa uživatele.
 
-def get_password_hash(password: str) -> str:
-    """Hashes a plain password."""
-    return pwd_context.hash(password)
+    Returns:
+        User | None: Objekt uživatele nebo None, pokud nebyl nalezen.
+    """
+    return db.query(User).filter(User.email == email).first()
+
+def create_default_admin_user(db: Session) -> Optional[User]:
+    """
+    Creates a default admin user if it doesn't already exist.
+    
+    Args:
+        db (Session): Database session
+        
+    Returns:
+        Optional[User]: Created admin user or None if already exists
+    """
+    # Check if admin user already exists
+    admin_email = settings.DEFAULT_ADMIN_EMAIL
+    existing_admin = get_user_by_email(db, admin_email)
+    
+    if existing_admin:
+        print("DEBUG: Default admin user already exists.")
+        return None
+    
+    # Create admin user
+    hashed_password = get_password_hash(settings.DEFAULT_ADMIN_PASSWORD)  # Default password should be changed after first login
+    current_time = datetime.now(timezone.utc)
+    
+    admin_user = User(
+        id=f"us-{uuid.uuid4()}",  # Generate UUID for admin
+        email=admin_email,
+        name=settings.DEFAULT_ADMIN_NAME,
+        password_hash=hashed_password,
+        created=current_time,
+        active=current_time
+    )
+    
+    db.add(admin_user)
+    
+    try:
+        db.commit()
+        db.refresh(admin_user)
+        print(f"DEBUG: Created default admin user with ID: {admin_user.id}")
+        
+        # Assign administrator role (ID 2) to the admin user
+        admin_role_entry = UserRole(
+            id=admin_user.id,
+            id_roles=2,  # Administrator role ID
+            id_created_by=admin_user.id,  # Admin creates their own role
+            id_deactivated_by=None,
+            when_created=current_time,
+            when_deactivated=None
+        )
+        
+        # Also assign common user role (ID 1) to the admin user
+        common_role_entry = UserRole(
+            id=admin_user.id,
+            id_roles=1,  # Common user role ID
+            id_created_by=admin_user.id,
+            id_deactivated_by=None,
+            when_created=current_time,
+            when_deactivated=None
+        )
+        
+        db.add(admin_role_entry)
+        db.add(common_role_entry)
+        db.commit()
+        
+        print("DEBUG: Admin user roles assigned successfully.")
+        return admin_user
+        
+    except IntegrityError as ie:
+        db.rollback()
+        print(f"DEBUG: IntegrityError in create_default_admin_user: {str(ie)}")
+        return None
+    except Exception as e:
+        db.rollback()
+        print(f"DEBUG: Error creating admin user: {str(e)}")
+        raise e
 
 def create_default_roles(db: Session):
     """
     Checks for default roles and creates them if they don't exist.
-    Currently, creates a "common user" role with ID 1.
+    Creates the following default roles:
+    - ID 1: Common User (běžný uživatel)
+    - ID 2: Administrator (administrátor s rozšířenými právy)
     """
+    # Create common user role (ID 1)
     common_user_role = db.query(Role).filter(Role.id_roles == 1).first()
     if not common_user_role:
         default_role = Role(id_roles=1, description="Common User")
@@ -43,6 +125,22 @@ def create_default_roles(db: Session):
         except Exception as e:
             db.rollback()
             print(f"DEBUG: Error creating default role: {str(e)}")
+    
+    # Create administrator role (ID 2)
+    admin_role = db.query(Role).filter(Role.id_roles == 2).first()
+    if not admin_role:
+        admin_role = Role(id_roles=2, description="Administrator")
+        db.add(admin_role)
+        try:
+            db.commit()
+            db.refresh(admin_role)
+            print("DEBUG: Default role 'Administrator' (ID 2) created.")
+        except IntegrityError:
+            db.rollback()
+            print("DEBUG: Default role 'Administrator' (ID 2) already exists or another error occurred.")
+        except Exception as e:
+            db.rollback()
+            print(f"DEBUG: Error creating admin role: {str(e)}")
 
 
 async def create_user_account(db: Session, user_data: UserRegisterRequest) -> User | None:
@@ -106,12 +204,12 @@ async def create_user_account(db: Session, user_data: UserRegisterRequest) -> Us
         # Given the schema, these must be valid user IDs.
         # Simplest assumption: the user is creating their own role link.
         user_role_entry = UserRole(
-            id_users=new_user.id_users,
-            id_roles=default_role_id,
-            id_users_created=new_user.id_users, # User creating their own role link
-            id_users_deactivated=new_user.id_users, # Placeholder, assuming it means "not deactivated"
-            when_created=current_time
-            # when_deactivated is nullable in the model/schema, so not setting it here.
+                    id=new_user.id,
+                    id_roles=default_role_id,
+                    id_created_by=new_user.id,
+                    id_deactivated_by=None,
+                    when_created=current_time
+            # when_deactivated is also None for an active role, and is nullable in the model
         )
         db.add(user_role_entry)
         db.commit()
@@ -179,25 +277,57 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     Získá aktuálně přihlášeného aktivního uživatele.
     Používá se jako FastAPI dependency.
     """
-    # V modelu User je 'active' datetime objekt. Předpokládáme, že pokud je nastaven, uživatel je aktivní.
-    # Pro explicitní kontrolu neaktivity by bylo potřeba porovnat s aktuálním časem
-    # nebo mít dedikovaný boolean 'is_active' flag.
-    # Prozatím, pokud 'active' existuje (není None), považujeme uživatele za aktivního.
-    # Podle schématu UserBase je 'active' typu datetime.
-    # V User modelu je 'active' DateTime, nullable=False. Takže by měl vždy existovat.
-    # Otázka je, co znamená "neaktivní". Pokud by to znamenalo, že 'active' je starší než nějaký limit,
-    # pak by zde byla potřeba další logika. Prozatím předpokládáme, že existence záznamu = aktivní.
-    # Pokud by 'active' znamenalo 'last_login_time', pak by se zde nekontrolovala aktivita.
-    # Vzhledem k názvu funkce "get_current_ACTIVE_user", je nutné nějak ověřit aktivitu.
-    # V modelu User je pole 'active' typu DateTime a je non-nullable.
-    # Předpokládejme, že 'active' se aktualizuje při každé aktivitě a pokud by uživatel byl deaktivován,
-    # nastavilo by se např. na NULL nebo by existoval jiný flag.
-    # Pro jednoduchost, pokud je uživatel nalezen, považujeme ho za aktivního.
-    # Pokud by existoval explicitní atribut 'is_active' (boolean), bylo by to lepší.
-    # V User modelu je pole 'active' (DateTime), které se nastavuje při vytvoření.
-    # Není zde jasná definice "neaktivního" uživatele.
-    # Prozatím, pokud je uživatel načten, považujeme ho za aktivního.
-    # Pokud by byla potřeba sofistikovanější kontrola (např. flag 'is_deactivated'), musela by se přidat.
-    if current_user.active is None: # Toto by nemělo nastat, pokud je 'active' non-nullable a vždy se nastavuje
-        raise HTTPException(status_code=400, detail="Neaktivní uživatel")
+    return current_user
+
+def get_user_roles(db: Session, user_id: str) -> list:
+    """
+    Získá seznam rolí uživatele podle jeho ID.
+    
+    Args:
+        db (Session): Databázová session.
+        user_id (str): ID uživatele.
+        
+    Returns:
+        list: Seznam ID rolí uživatele.
+    """
+    roles = db.query(Role.id_roles).join(
+        UserRole, UserRole.id_roles == Role.id_roles
+    ).filter(
+        UserRole.id == user_id,
+        UserRole.when_deactivated.is_(None)
+    ).all()
+    
+    return [role.id_roles for role in roles]
+
+async def check_admin_role(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Ověří, zda má uživatel administrátorskou roli (role s ID 2).
+    Používá se jako FastAPI dependency pro zabezpečení endpointů,
+    které by měly být přístupné pouze pro administrátory.
+    
+    Systém rolí:
+    - ID 1: Běžný uživatel (Common User)
+    - ID 2: Administrátor (Admin)
+    
+    Args:
+        db (Session): Databázová session.
+        current_user (User): Aktuálně přihlášený uživatel.
+        
+    Returns:
+        User: Aktuálně přihlášený uživatel, pokud má administrátorskou roli.
+        
+    Raises:
+        HTTPException 403: Pokud uživatel nemá administrátorskou roli.
+    """
+    user_roles = get_user_roles(db, current_user.id)
+    
+    if 2 not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Pro tuto akci nemáte dostatečná oprávnění. Vyžaduje se role administrátora."
+        )
+    
     return current_user

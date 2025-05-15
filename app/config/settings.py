@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # Admin user settings - can be overridden in .env file
+    DEFAULT_ADMIN_EMAIL: str = "admin@attentid.com"
+    DEFAULT_ADMIN_PASSWORD: str = "admin123"
+    DEFAULT_ADMIN_NAME: str = "System Administrator"
+    
     model_config = {
         "case_sensitive": True,
         "env_file": ".env",
