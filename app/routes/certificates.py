@@ -2,10 +2,10 @@
 Certificate routes for handling certificate generation and verification.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Path
+from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from app.models.models import User, Certificate
@@ -37,7 +37,7 @@ async def create_attendance_certificate(
     Verifies the user was actually present by checking MQTT records from checkpoints.
     
     Args:
-        certificate_data: Certificate data including Raspberry Pi UUID and optional timestamp
+        certificate_data: Certificate data including Raspberry Pi UUID, optional timestamp, and time window
         db: Database session
         current_user: Currently authenticated user
         
@@ -51,12 +51,13 @@ async def create_attendance_certificate(
     # Use current user's ID if not provided
     user_id = certificate_data.user_id or current_user.id
     
-    # Create certificate
+    # Create certificate with time window from the request body
     certificate = create_certificate(
         db=db,
         user_id=user_id,
         raspberry_uuid=certificate_data.raspberry_uuid,
-        timestamp=certificate_data.timestamp
+        timestamp=certificate_data.timestamp,
+        time_window_minutes=certificate_data.time_window_minutes
     )
     
     return certificate

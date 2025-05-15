@@ -42,56 +42,97 @@ def generate_signature(certificate_id: str, user_id: str, raspberry_uuid: str, t
     # Return base64 encoded signature
     return base64.b64encode(digest).decode()
 
-def verify_user_presence(db: Session, user_id: str, raspberry_uuid: str, timestamp: Optional[datetime] = None) -> bool:
+def verify_user_presence(db: Session, user_id: str, raspberry_uuid: str, timestamp: Optional[datetime] = None, time_window_minutes: int = 30) -> bool:
     """
     Verify that the user was actually present at the specified location by checking MQTT entries.
-    Looks for MQTT topics with the pattern 'ble_devices/{raspberry_uuid}/*/overenaadresa*/{user_uuid}'
+    Looks for MQTT topics with the pattern related to user detection at a specific location.
     
     Args:
         db (Session): Database session
         user_id (str): ID of the user to verify
         raspberry_uuid (str): UUID of the Raspberry Pi location
         timestamp (Optional[datetime]): Optional timestamp for checking presence at a specific time
+        time_window_minutes (int): Time window in minutes to search around the provided timestamp (±minutes)
     
     Returns:
         bool: True if user presence is confirmed, False otherwise
     """
-    
-    # Extract user UUID without prefix if it has one
-    user_uuid = user_id
-    if "-" in user_id:
-        user_uuid = user_id.split("-", 1)[1]
-    
-    # Build the search query
-    query = """
+    # First try to find entries with both IDs
+    direct_query = """
         SELECT * FROM mqttenteries 
         WHERE topic LIKE :topic_pattern
     """
     
     # Add time constraints if timestamp was provided
     if timestamp:
-        # Look for entries within +/- 1 hour from specified time
-        time_from = timestamp - timedelta(hours=1)
-        time_to = timestamp + timedelta(hours=1)
-        query += " AND time BETWEEN :time_from AND :time_to"
+        # Look for entries within specified time window from the timestamp
+        time_from = timestamp - timedelta(minutes=time_window_minutes)
+        time_to = timestamp + timedelta(minutes=time_window_minutes)
+        direct_query += " AND time BETWEEN :time_from AND :time_to"
     
-    # Build the topic pattern to search for - making it more flexible
-    topic_pattern = f"%{raspberry_uuid}%{user_id}%"    
-    # Execute the query with logging for debugging
+    # Build the topic pattern to search for both IDs
+    topic_pattern = f"%{raspberry_uuid}%{user_id}%"
+    
+    # Execute the query
     params = {"topic_pattern": topic_pattern}
     if timestamp:
         params.update({"time_from": time_from, "time_to": time_to})
     
-    result = db.execute(text(query), params).fetchall()
+    result = db.execute(text(direct_query), params).fetchall()
     
-    # For debugging - log what we're looking for and what we found
-    print(f"Looking for topic pattern: {topic_pattern}")
+    print(f"Looking for direct match with pattern: {topic_pattern}")
     print(f"Found {len(result)} matching entries")
     
-    # Return True if any matching entries were found
-    return len(result) > 0
+    # If direct match found, return True
+    if len(result) > 0:
+        return True
+    
+    # If no direct match, try alternate approaches for more flexibility
+    
+    # Try to match just with user ID and extract Raspberry UUID from topic
+    user_query = """
+        SELECT topic, payload, time FROM mqttenteries 
+        WHERE topic LIKE :user_pattern
+    """
+    
+    if timestamp:
+        user_query += " AND time BETWEEN :time_from AND :time_to"
+    
+    user_pattern = f"%{user_id}%"
+    
+    params = {"user_pattern": user_pattern}
+    if timestamp:
+        params.update({"time_from": time_from, "time_to": time_to})
+    
+    user_results = db.execute(text(user_query), params).fetchall()
+    
+    print(f"Looking for user entries with pattern: {user_pattern}")
+    print(f"Found {len(user_results)} user entries")
+    
+    # Extract UUIDs from topics and check for matches
+    for row in user_results:
+        topic = row[0]
+        parts = topic.split('/')
+        
+        # Look for UUID-like parts
+        for part in parts:
+            if len(part) > 30 and '-' in part:
+                # Check if it's similar to our raspberry UUID
+                if raspberry_uuid in part or part in raspberry_uuid:
+                    print(f"Found matching UUID in topic: {part}")
+                    return True
+                
+                # Check suffix matches (last 8 chars)
+                if len(part) >= 8 and len(raspberry_uuid) >= 8:
+                    if part[-8:] == raspberry_uuid[-8:]:
+                        print(f"Found suffix match: {part[-8:]} == {raspberry_uuid[-8:]}")
+                        return True
+    
+    # No matches found
+    print("No matches found with any method")
+    return False
 
-def create_certificate(db: Session, user_id: str, raspberry_uuid: str, timestamp: Optional[datetime] = None) -> Certificate:
+def create_certificate(db: Session, user_id: str, raspberry_uuid: str, timestamp: Optional[datetime] = None, time_window_minutes: int = 30) -> Certificate:
     """
     Create a new attendance certificate.
     
@@ -100,6 +141,7 @@ def create_certificate(db: Session, user_id: str, raspberry_uuid: str, timestamp
         user_id (str): ID of the user who was present
         raspberry_uuid (str): UUID of the Raspberry Pi that detected the user
         timestamp (Optional[datetime]): Optional timestamp for checking presence at a specific time
+        time_window_minutes (int): Time window in minutes to search around the provided timestamp (±minutes)
     
     Returns:
         Certificate: The created certificate
@@ -113,7 +155,7 @@ def create_certificate(db: Session, user_id: str, raspberry_uuid: str, timestamp
         )
     
     # Verify that the user was actually present at this location
-    if not verify_user_presence(db, user_id, raspberry_uuid, timestamp):
+    if not verify_user_presence(db, user_id, raspberry_uuid, timestamp, time_window_minutes):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot generate certificate: No verification found that the user was present at this location"
@@ -127,7 +169,8 @@ def create_certificate(db: Session, user_id: str, raspberry_uuid: str, timestamp
     
     # Generate signature
     signature = generate_signature(certificate_id, user_id, raspberry_uuid, cert_timestamp)
-      # Create certificate
+    
+    # Create certificate
     certificate = Certificate(
         id=certificate_id,
         user_id=user_id,

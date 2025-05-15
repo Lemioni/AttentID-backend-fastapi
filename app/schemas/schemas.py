@@ -312,10 +312,12 @@ class CertificateBase(BaseModel):
     raspberry_uuid: str
     user_id: Optional[str] = None  # Optional when creating (can use currently authenticated user)
 
-class CertificateCreate(CertificateBase):
-    """Schema for creating a new certificate."""
-    timestamp: Optional[datetime] = None  # Optional timestamp, defaults to current time if not provided
-
+class CertificateCreate(BaseModel):
+    user_id: Optional[str] = None
+    raspberry_uuid: str
+    timestamp: Optional[datetime] = None
+    time_window_minutes: int = 30  # Added this field to the request body with default value of 30
+    
 class CertificateVerify(BaseModel):
     """Schema for verifying a certificate."""
     certificate_id: str
