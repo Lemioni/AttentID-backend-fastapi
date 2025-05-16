@@ -35,10 +35,11 @@ class Settings(BaseSettings):
     PGADMIN_DEFAULT_PASSWORD: str = "admin"
     
     # Blockchain settings
-    CONTRACT_ADDRESS: str = "0xa8ab8223c92274c4644d8b40719fe577dc946ed3"
+    CONTRACT_ADDRESS: str = "0x8D3D0B083aC3b07edEFe786AdBD7012dABd7E6a5"
     ACCOUNT_PASSWORD: str = "pixmapixma"
-    ACCOUNT_ADDRESS: str = "0x6fb64b24d6804970084a6b3a19a1d9e57182b06e"
-    RPC_URL: str = "http://192.168.37.101:8545"
+    ACCOUNT_ADDRESS: str = "0x4f247F1b1E98965507e4B663D5C317e9c73e2157"
+    RPC_URL: str = "http://192.168.37.205:8545"
+
     
     # MQTT settings
     MQTT_BROKER_HOST: str = "mqtt.portabo.cz"

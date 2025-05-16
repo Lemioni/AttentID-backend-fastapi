@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.models.models import Certificate
 
+from app.blockchain.zapis_a_cteni_blockchain import store_string
 # Konfigurace logování
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -227,7 +228,18 @@ class MQTTHandler:
                             # Implement email notification here if needed
                     except Exception as e:
                         logger.warning(f"Could not prepare email notification: {str(e)}")
-                    
+                        
+                    # Attempt to store the payload in the blockchain
+                    logger.info(f"Attempting to store payload in blockchain for topic: {topic}")
+                    blockchain_receipt_id = store_string(payload)
+                    if blockchain_receipt_id is not None: # Check if store_string returned a non-None value (ID)
+                        logger.info(f"Successfully stored payload in blockchain with ID: {blockchain_receipt_id} for topic: {topic}")
+                    else:
+                        logger.error(f"Failed to store payload in blockchain for topic: {topic}. store_string returned None.")
+
+
+            
+                    # Optionally, you could also store the metadata in the certificate       
                 except HTTPException as he:
                     logger.warning(f"Could not create certificate: {he.detail}")
                 except Exception as e:

@@ -1,8 +1,8 @@
 import logging # Add logging import
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 # Assuming Container is in app.core.container

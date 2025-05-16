@@ -6,6 +6,10 @@ import os
 # Načtení proměnných prostředí
 dotenv.load_dotenv(override=True)
 
+# Construct path to the ABI file
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+ABI_FILE_PATH = os.path.join(SCRIPT_DIR, 'StringStorage_abi.json')
+
 # Konfigurace
 CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
 ACCOUNT_PASSWORD = os.getenv("ACCOUNT_PASSWORD")
@@ -37,7 +41,7 @@ if web3.eth.get_code(contract_address) == b'':
     print("⛔ Žádný kód kontraktu na této adrese!")
     exit()
 
-with open('StringStorage_abi.json') as f:
+with open(ABI_FILE_PATH) as f:
     contract_abi = json.load(f)
 
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
