@@ -11,7 +11,7 @@ import re
 # User schemas
 class UserBase(BaseModel):
     email: Optional[str] = None
-    name: Optional[str] = None
+    name: str = ""  # Default to empty string instead of None
 
 class UserCreate(UserBase):
     password: str
@@ -40,7 +40,7 @@ class UserListResponse(User):
     """Schéma pro seznam uživatelů."""
     id: str
     email: str
-    name: str
+    name: str  # This is required to be a valid string
     created: datetime
     active: Optional[datetime] = None
     
@@ -305,3 +305,28 @@ class MQTTMessage(BaseModel):
     payload: str  # Obsah zprávy
     qos: int = 0  # Quality of Service úroveň
     device_id: Optional[str] = None  # Volitelný identifikátor zařízení
+
+# Certificate schemas
+class CertificateBase(BaseModel):
+    """Base certificate schema with common attributes."""
+    raspberry_uuid: str
+    user_id: Optional[str] = None  # Optional when creating (can use currently authenticated user)
+
+class CertificateCreate(BaseModel):
+    user_id: Optional[str] = None
+    raspberry_uuid: str
+    timestamp: Optional[datetime] = None
+    time_window_minutes: int = 30  # Added this field to the request body with default value of 30
+    
+class CertificateVerify(BaseModel):
+    """Schema for verifying a certificate."""
+    certificate_id: str
+
+class CertificateResponse(CertificateBase):
+    """Schema for certificate response data."""
+    id: str
+    timestamp: datetime
+    verified: bool
+    
+    class Config:
+        from_attributes = True

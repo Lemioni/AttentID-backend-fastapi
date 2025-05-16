@@ -7,10 +7,12 @@ import json
 import logging
 import re
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from app.models.models import Device, Topic, MQTTEntry, User
 from app.schemas.schemas import MQTTMessage
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from app.models.models import Certificate
 
 # Konfigurace logování
 logging.basicConfig(level=logging.INFO)
@@ -106,11 +108,141 @@ class MQTTHandler:
             
             # Uložení zprávy do databáze
             self._save_to_database(message)
+
+            # Add debugging log
+            logger.info(f"Checking topic for presence verification: {topic}")
+            
+            # Check if this is a user presence verification message
+            if "overenaadresa" in topic or "overenaadresa_uzivatele" in topic:
+                logger.info(f"Found presence verification topic: {topic}")
+                self._handle_presence_verification(topic, payload_str)
+            
             
             logger.info(f"Úspěšně zpracována zpráva z tématu: {topic}")
             
         except Exception as e:
             logger.error(f"Chyba při zpracování MQTT zprávy: {e}", exc_info=True)
+
+    def _handle_presence_verification(self, topic: str, payload: str):
+        """
+        Handle user presence verification message and create certificate automatically.
+        Extracts user and raspberry IDs from the topic and creates attendance certificates.
+        
+        Args:
+            topic: MQTT topic containing presence verification
+            payload: Message payload
+        """
+        try:
+            logger.info(f"Processing presence verification for topic: {topic}")
+            
+            # Extract user_id and raspberry_uuid from topic
+            parts = topic.split('/')
+            user_id = None
+            raspberry_uuid = None
+            
+            # Find user ID (last part after "overenaadresa_uzivatele")
+            if len(parts) >= 2 and parts[-2] == "overenaadresa_uzivatele":
+                user_id = parts[-1]
+                logger.info(f"Extracted user ID: {user_id}")
+            else:
+                # Try alternative patterns
+                for i, part in enumerate(parts):
+                    if part == "overenaadresa" and i+1 < len(parts):
+                        user_id = parts[i+1]
+                        logger.info(f"Extracted user ID from alternative pattern: {user_id}")
+                        break
+            
+            # Find Raspberry UUID (typically third component in our pattern)
+            for part in parts:
+                if len(part) > 30 and '-' in part:
+                    raspberry_uuid = part
+                    logger.info(f"Extracted Raspberry UUID: {raspberry_uuid}")
+                    break
+            
+            # If we couldn't find a UUID that looks like a raspberry UUID, try the third component
+            if not raspberry_uuid and len(parts) > 3:
+                raspberry_uuid = parts[3]
+                logger.info(f"Using third path component as Raspberry UUID: {raspberry_uuid}")
+            
+            # If we found both IDs, create a certificate
+            if user_id and raspberry_uuid:
+                logger.info(f"Creating automatic certificate for user {user_id} at location {raspberry_uuid}")
+                
+                # Get a database session for certificate creation
+                from app.core.database import SessionLocal
+                from app.services.certificates import create_certificate
+                from app.models.models import Certificate
+                from datetime import datetime, timedelta
+                
+                db = SessionLocal()
+                try:
+                    # Check if a certificate already exists for this user at this location within the last hour
+                    current_time = datetime.now()
+                    time_threshold = current_time - timedelta(hours=1)
+                    
+                    existing_certificate = db.query(Certificate).filter(
+                        Certificate.user_id == user_id,
+                        Certificate.raspberry_uuid == raspberry_uuid,
+                        Certificate.timestamp >= time_threshold
+                    ).first()
+                    
+                    if existing_certificate:
+                        logger.info(f"Certificate already exists for user {user_id} at location {raspberry_uuid} " 
+                                f"created at {existing_certificate.timestamp}")
+                        return
+                    
+                    # Parse additional data from payload if present
+                    metadata = {}
+                    try:
+                        if isinstance(payload, str) and (payload.startswith('{') or payload.startswith("'")):
+                            # Try to parse JSON or Python dict string
+                            clean_payload = payload.replace("'", '"')
+                            try:
+                                payload_data = json.loads(clean_payload)
+                                if isinstance(payload_data, dict):
+                                    metadata = payload_data
+                                    logger.info(f"Parsed payload metadata: {metadata}")
+                            except json.JSONDecodeError:
+                                logger.warning(f"Could not parse payload as JSON: {payload}")
+                    except Exception as e:
+                        logger.warning(f"Error parsing payload metadata: {str(e)}")
+                    
+                    # Create certificate
+                    certificate = create_certificate(
+                        db=db,
+                        user_id=user_id,
+                        raspberry_uuid=raspberry_uuid,
+                        timestamp=current_time,
+                        time_window_minutes=30  # Default window
+                    )
+                    
+                    logger.info(f"Successfully created certificate: {certificate.id}")
+                    
+                    # Here you could add code to notify the user by email
+                    try:
+                        # Get user email if needed
+                        user = db.query(User).filter(User.id == user_id).first()
+                        if user and user.email:
+                            logger.info(f"Would notify user {user.email} about new certificate {certificate.id}")
+                            # Implement email notification here if needed
+                    except Exception as e:
+                        logger.warning(f"Could not prepare email notification: {str(e)}")
+                    
+                except HTTPException as he:
+                    logger.warning(f"Could not create certificate: {he.detail}")
+                except Exception as e:
+                    logger.error(f"Error creating certificate: {str(e)}", exc_info=True)
+                finally:
+                    db.close()
+            else:
+                logger.warning(f"Could not extract both user_id and raspberry_uuid from topic: {topic}")
+                if not user_id:
+                    logger.warning("Missing user_id")
+                if not raspberry_uuid:
+                    logger.warning("Missing raspberry_uuid")
+        
+        except Exception as e:
+            logger.error(f"Error handling presence verification: {str(e)}", exc_info=True)
     
     def _save_to_database(self, message: MQTTMessage):
         """
