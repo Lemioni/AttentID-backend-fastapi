@@ -51,6 +51,7 @@ def create_application() -> FastAPI:
     application.include_router(users.router) # Prefix /api/users is defined in users.py
     application.include_router(devices.router, prefix=settings.API_V1_STR)
     application.include_router(statistics.router, prefix=settings.API_V1_STR) # Added statistics router
+
     application.include_router(certificates.router, prefix=settings.API_V1_STR) # Added certificates router
 
     return application

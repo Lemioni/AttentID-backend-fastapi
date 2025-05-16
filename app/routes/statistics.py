@@ -1,8 +1,8 @@
 import logging # Add logging import
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
 # Assuming Container is in app.core.container
@@ -26,6 +26,9 @@ router = APIRouter(
         "Queries the `newest_device_enteries` materialized view to count the "
         "newest unique device entries (MAC addresses) for each Raspberry Pi UUID. "
         "The view is refreshed on each request to provide the latest data."
+      
+        "Note: The materialized view (`newest_device_enteries`) should be refreshed "
+        "periodically in your database for this endpoint to return up-to-date data."
     )
 )
 async def get_devices_per_raspberry(
@@ -209,3 +212,31 @@ async def _get_devices_per_raspberry(raspberry_uuid: Optional[str], db: Session)
         endpoint = f"/devices_per_raspberry/{raspberry_uuid}" if raspberry_uuid else "/devices_per_raspberry"
         logger.error(f"Database query failed for {endpoint}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An error occurred while querying device statistics")
+    query_str = """
+        SELECT
+            raspberry_uuid,
+            COUNT(DISTINCT found_mac_address) AS device_count
+        FROM
+            newest_device_enteries
+        GROUP BY
+            raspberry_uuid
+        ORDER BY
+            raspberry_uuid;
+    """
+    try:
+        result_proxy = db.execute(text(query_str))
+        fetched_results = result_proxy.fetchall()
+    except Exception as e:
+        # It's good practice to log the actual error
+        logger = logging.getLogger(__name__)
+        logger.error(f"Database query failed for /devices_per_raspberry: {e}", exc_info=True) # Uncommented
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while querying device statistics."
+        )
+
+    response_data = [
+        RaspberryDeviceCount(raspberry_uuid=str(row.raspberry_uuid), device_count=int(row.device_count))
+        for row in fetched_results
+    ]
+    return response_data
